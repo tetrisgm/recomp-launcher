@@ -120,10 +120,8 @@ void App::draw_graphics() {
                    "Drops the internal resolution under load to hold the frame rate.");
 
     section("Image");
-    if (g->has_antialiasing) {
-        static const char* kAa[] = {"Off", "FXAA", "MSAA 2x", "MSAA 4x", "MSAA 8x"};
-        row_combo("Anti-aliasing", &io->antialiasing, kAa, 5);
-    }
+    if (g->has_antialiasing)  // psxrecomp: 0/1 linear (smoothed) present scaling
+        row_toggle("Smooth scaling", &io->antialiasing, "Linear filtering when the image is scaled to the window.");
     if (g->has_texture_filter) {
         static const char* kTf[] = {"Nearest (original)", "Bilinear"};
         row_combo("Texture filtering", &io->texture_filter, kTf, 2);

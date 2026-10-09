@@ -15,80 +15,199 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
+#include <atomic>
 #include <memory>
+#include <mutex>
+#include <vector>
 #include <string>
 
 namespace {
 using namespace r4l;
 
+// Threads: recomp_overlay_handle_event / set_open / is_open run on the host's
+// main thread; recomp_overlay_render runs on whichever thread owns the GL
+// context (psxrecomp's render thread when it is on). The App, ImGui and every
+// GL object are touched only from render(); the main thread only flips atomics
+// and queues raw SDL events.
 struct Overlay {
     std::unique_ptr<App> app;
     ImGuiContext* ctx = nullptr;
     SDL_Window* window = nullptr;
     const RecompOverlayHost* host = nullptr;
-    bool open = false;
-    bool paused = false;
-    unsigned pad_held = 0;
+    std::string assets;
+    bool gl_ready = false;
+    std::atomic<bool> open{false};
+    std::atomic<bool> opening{false};   // main asked to open; render applies
+    std::atomic<bool> closing{false};   // render asked to close; main applies
+    unsigned pad_held = 0;              // main thread
     unsigned combo = (1u << SDL_GAMEPAD_BUTTON_START) | (1u << SDL_GAMEPAD_BUTTON_BACK);
+    std::mutex mu;
+    std::vector<SDL_Event> events;      // main -> render
+    uint64_t last_ns = 0;
 };
 Overlay* g_ov = nullptr;
 
-void set_open(bool open) {
+ImGuiKey imgui_key(SDL_Scancode sc) {
+    switch (sc) {
+    case SDL_SCANCODE_UP: return ImGuiKey_UpArrow;
+    case SDL_SCANCODE_DOWN: return ImGuiKey_DownArrow;
+    case SDL_SCANCODE_LEFT: return ImGuiKey_LeftArrow;
+    case SDL_SCANCODE_RIGHT: return ImGuiKey_RightArrow;
+    case SDL_SCANCODE_RETURN: return ImGuiKey_Enter;
+    case SDL_SCANCODE_KP_ENTER: return ImGuiKey_KeypadEnter;
+    case SDL_SCANCODE_SPACE: return ImGuiKey_Space;
+    case SDL_SCANCODE_ESCAPE: return ImGuiKey_Escape;
+    case SDL_SCANCODE_TAB: return ImGuiKey_Tab;
+    case SDL_SCANCODE_BACKSPACE: return ImGuiKey_Backspace;
+    case SDL_SCANCODE_DELETE: return ImGuiKey_Delete;
+    case SDL_SCANCODE_HOME: return ImGuiKey_Home;
+    case SDL_SCANCODE_END: return ImGuiKey_End;
+    case SDL_SCANCODE_PAGEUP: return ImGuiKey_PageUp;
+    case SDL_SCANCODE_PAGEDOWN: return ImGuiKey_PageDown;
+    case SDL_SCANCODE_LSHIFT: return ImGuiKey_LeftShift;
+    case SDL_SCANCODE_RSHIFT: return ImGuiKey_RightShift;
+    case SDL_SCANCODE_LCTRL: return ImGuiKey_LeftCtrl;
+    case SDL_SCANCODE_RCTRL: return ImGuiKey_RightCtrl;
+    case SDL_SCANCODE_Q: return ImGuiKey_Q;
+    case SDL_SCANCODE_E: return ImGuiKey_E;
+    default: return ImGuiKey_None;
+    }
+}
+
+ImGuiKey imgui_pad(Uint8 b) {
+    switch (b) {
+    case SDL_GAMEPAD_BUTTON_SOUTH: return ImGuiKey_GamepadFaceDown;
+    case SDL_GAMEPAD_BUTTON_EAST: return ImGuiKey_GamepadFaceRight;
+    case SDL_GAMEPAD_BUTTON_WEST: return ImGuiKey_GamepadFaceLeft;
+    case SDL_GAMEPAD_BUTTON_NORTH: return ImGuiKey_GamepadFaceUp;
+    case SDL_GAMEPAD_BUTTON_DPAD_UP: return ImGuiKey_GamepadDpadUp;
+    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return ImGuiKey_GamepadDpadDown;
+    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return ImGuiKey_GamepadDpadLeft;
+    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return ImGuiKey_GamepadDpadRight;
+    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return ImGuiKey_GamepadL1;
+    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return ImGuiKey_GamepadR1;
+    case SDL_GAMEPAD_BUTTON_START: return ImGuiKey_GamepadStart;
+    case SDL_GAMEPAD_BUTTON_BACK: return ImGuiKey_GamepadBack;
+    default: return ImGuiKey_None;
+    }
+}
+
+// Render thread: feed one queued event to the app (rebind capture) or ImGui.
+void feed(App& a, const SDL_Event& e) {
+    if (a.handle_event(e)) return;
+    ImGuiIO& io = ImGui::GetIO();
+    switch (e.type) {
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP: {
+        const bool down = e.type == SDL_EVENT_KEY_DOWN;
+        io.AddKeyEvent(ImGuiMod_Shift, (e.key.mod & SDL_KMOD_SHIFT) != 0);
+        io.AddKeyEvent(ImGuiMod_Ctrl, (e.key.mod & SDL_KMOD_CTRL) != 0);
+        const ImGuiKey k = imgui_key(e.key.scancode);
+        if (k != ImGuiKey_None) io.AddKeyEvent(k, down);
+        break;
+    }
+    case SDL_EVENT_TEXT_INPUT: io.AddInputCharactersUTF8(e.text.text); break;
+    case SDL_EVENT_MOUSE_MOTION: io.AddMousePosEvent(e.motion.x, e.motion.y); break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        if (e.button.button >= 1 && e.button.button <= 3)
+            io.AddMouseButtonEvent(e.button.button == 1 ? 0 : e.button.button == 3 ? 1 : 2,
+                                   e.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
+        break;
+    case SDL_EVENT_MOUSE_WHEEL: io.AddMouseWheelEvent(e.wheel.x, e.wheel.y); break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+        const ImGuiKey k = imgui_pad(e.gbutton.button);
+        if (k != ImGuiKey_None) io.AddKeyEvent(k, e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
+        break;
+    }
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        if (e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
+            io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickUp, e.gaxis.value < -16000, 1.0f);
+            io.AddKeyAnalogEvent(ImGuiKey_GamepadLStickDown, e.gaxis.value > 16000, 1.0f);
+        }
+        break;
+    default: break;
+    }
+}
+
+// Main thread.
+void request_open(bool open) {
     Overlay& o = *g_ov;
-    if (open == o.open) return;
-    o.open = open;
-    App& a = *o.app;
-    const bool netplay = o.host && o.host->netplay_active && o.host->netplay_active(o.host->ctx);
-    a.netplay_locked = netplay;
+    if (open == o.open.load()) return;
     if (open) {
+        const bool netplay = o.host && o.host->netplay_active && o.host->netplay_active(o.host->ctx);
+        if (!netplay && o.host && o.host->set_paused) o.host->set_paused(o.host->ctx, 1);
+        o.opening = true;
+        o.open = true;
+    } else {
+        o.closing = true;
+    }
+}
+
+// Render thread, inside the overlay's ImGui context.
+void apply_transitions(Overlay& o) {
+    App& a = *o.app;
+    if (o.opening.exchange(false)) {
+        a.netplay_locked = o.host && o.host->netplay_active && o.host->netplay_active(o.host->ctx);
         a.overlay_open = true;
         a.screen = Screen::Graphics;
         a.focus_request = Screen::Graphics;
         if (a.s.io) a.opened = a.applied = *a.s.io;
-        o.paused = !netplay && o.host && o.host->set_paused && o.host->set_paused(o.host->ctx, 1);
         skin().play("confirm");
-    } else {
+    }
+    if (o.closing.exchange(false) || !a.overlay_open) {
         std::string err;
         a.s.commit_files(&err);
-        if (o.paused && o.host && o.host->set_paused) o.host->set_paused(o.host->ctx, 0);
-        o.paused = false;
+        if (a.s.binds_dirty == false && o.host && o.host->reload_bindings) o.host->reload_bindings(o.host->ctx);
+        if (o.host && o.host->set_paused) o.host->set_paused(o.host->ctx, 0);
+        a.overlay_open = false;
+        o.open = false;
         skin().play("back");
     }
 }
+
+bool gl_init(Overlay& o) {
+    if (o.gl_ready) return true;
+    ImGui_ImplOpenGL3_Init("#version 330");
+    App& a = *o.app;
+    Theme& th = const_cast<Theme&>(theme());
+    th.body = ImGui::GetIO().Fonts->AddFontDefault();
+    th.bold = th.body;
+    apply_theme(*a.title, 1.0f);
+    a.init_skin();  // textures: needs the GL context, so here, not in init
+    o.gl_ready = true;
+    return true;
+}
 }  // namespace
 
-extern "C" int recomp_overlay_init(void* sdl_window, void* gl_context, const RecompLauncherCGameInfo* game,
+extern "C" int recomp_overlay_init(void* sdl_window, void*, const RecompLauncherCGameInfo* game,
                                    RecompLauncherCSettings* io, const RecompOverlayHost* host,
                                    const char* assets_dir) {
     if (g_ov) return 1;
     g_ov = new Overlay();
     g_ov->window = static_cast<SDL_Window*>(sdl_window);
     g_ov->host = host;
+    g_ov->assets = resolve_assets_dir(assets_dir);
     g_ov->app = std::make_unique<App>();
     App& a = *g_ov->app;
     a.mode = Mode::Overlay;
     a.host = host;
-    a.begin(io, game, resolve_assets_dir(assets_dir).c_str(), nullptr);
+    a.begin(io, game, g_ov->assets.c_str(), nullptr);
     if (host && host->mod_set_live)
         a.mods.live = [host](const char* p, const char* f, const char* o, const char* v) {
             return host->mod_set_live(host->ctx, p, f, o, v);
         };
     if (const char* c = std::getenv("R4L_OVERLAY_COMBO")) g_ov->combo = static_cast<unsigned>(std::strtoul(c, nullptr, 0));
-
     ImGuiContext* prev = ImGui::GetCurrentContext();
     g_ov->ctx = ImGui::CreateContext();
     ImGui::SetCurrentContext(g_ov->ctx);
     ImGuiIO& im = ImGui::GetIO();
     im.IniFilename = nullptr;
     im.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
-    ImGui_ImplSDL3_InitForOpenGL(g_ov->window, gl_context);
-    ImGui_ImplOpenGL3_Init("#version 330");
-    Theme& th = const_cast<Theme&>(theme());
-    th.body = im.Fonts->AddFontDefault();
-    th.bold = th.body;
-    apply_theme(*a.title, 1.0f);
-    a.init_skin();
-    if (prev) ImGui::SetCurrentContext(prev);
+    im.BackendFlags |= ImGuiBackendFlags_HasGamepad;
+    ImGui::SetCurrentContext(prev);
     return 1;
 }
 
@@ -96,10 +215,10 @@ extern "C" int recomp_overlay_handle_event(const void* ev) {
     if (!g_ov || !ev) return 0;
     const SDL_Event& e = *static_cast<const SDL_Event*>(ev);
     Overlay& o = *g_ov;
+    const bool is_open = o.open.load();
     bool toggle = false;
-    if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE && !e.key.repeat &&
-        (!o.open || o.app->capture.kind == Capture::None))
-        toggle = !o.open;  // Esc opens; inside the menu Esc is "back" (handled by the frame)
+    if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE && !e.key.repeat && !is_open)
+        toggle = true;  // inside the menu Esc is "back"; the frame resumes from the top level
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
         o.pad_held |= 1u << e.gbutton.button;
         if (e.gbutton.button == SDL_GAMEPAD_BUTTON_GUIDE) toggle = true;
@@ -107,30 +226,46 @@ extern "C" int recomp_overlay_handle_event(const void* ev) {
     }
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_UP) o.pad_held &= ~(1u << e.gbutton.button);
     if (toggle) {
-        set_open(!o.open);
+        request_open(!is_open);
         return 1;
     }
-    if (!o.open) return 0;
-    ImGuiContext* prev = ImGui::GetCurrentContext();
-    ImGui::SetCurrentContext(o.ctx);
-    if (!o.app->handle_event(e)) ImGui_ImplSDL3_ProcessEvent(&e);
-    ImGui::SetCurrentContext(prev);
-    return 1;  // the game sees nothing while the menu is open
+    if (!is_open) return 0;
+    switch (e.type) {  // the game sees no input while the menu is open
+    case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP: case SDL_EVENT_TEXT_INPUT:
+    case SDL_EVENT_MOUSE_MOTION: case SDL_EVENT_MOUSE_BUTTON_DOWN: case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_WHEEL: case SDL_EVENT_GAMEPAD_BUTTON_DOWN: case SDL_EVENT_GAMEPAD_BUTTON_UP:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+        std::lock_guard<std::mutex> lk(o.mu);
+        o.events.push_back(e);
+        return 1;
+    }
+    default: return 0;  // quit, window and device events stay with the host
+    }
 }
 
-extern "C" int recomp_overlay_is_open(void) { return g_ov && g_ov->open; }
+extern "C" int recomp_overlay_is_open(void) { return g_ov && g_ov->open.load(); }
 extern "C" void recomp_overlay_set_open(int open) {
-    if (g_ov) set_open(open != 0);
+    if (g_ov) request_open(open != 0);
 }
 
 extern "C" void recomp_overlay_render(int fb_w, int fb_h) {
-    if (!g_ov || !g_ov->open) return;
+    if (!g_ov || !g_ov->open.load()) return;
     Overlay& o = *g_ov;
     ImGuiContext* prev = ImGui::GetCurrentContext();
     ImGui::SetCurrentContext(o.ctx);
+    gl_init(o);
+    std::vector<SDL_Event> evs;
+    {
+        std::lock_guard<std::mutex> lk(o.mu);
+        evs.swap(o.events);
+    }
+    apply_transitions(o);
     ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
     ImGuiIO& io = ImGui::GetIO();
+    for (const SDL_Event& e : evs) feed(*o.app, e);
+    const uint64_t now = SDL_GetTicksNS();
+    io.DeltaTime = o.last_ns ? std::max(1e-4f, (now - o.last_ns) / 1e9f) : 1.0f / 60.0f;
+    o.last_ns = now;
     io.DisplaySize = ImVec2(static_cast<float>(fb_w), static_cast<float>(fb_h));
     io.DisplayFramebufferScale = ImVec2(1, 1);
     ImGui::NewFrame();
@@ -138,18 +273,18 @@ extern "C" void recomp_overlay_render(int fb_w, int fb_h) {
     ImGui::Render();
     glViewport(0, 0, fb_w, fb_h);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (!o.app->overlay_open) apply_transitions(o);
     ImGui::SetCurrentContext(prev);
-    if (!o.app->overlay_open) set_open(false);
-    o.app->overlay_open = o.open;
 }
 
 extern "C" void recomp_overlay_shutdown(void) {
     if (!g_ov) return;
     ImGuiContext* prev = ImGui::GetCurrentContext();
     ImGui::SetCurrentContext(g_ov->ctx);
-    skin().unload();
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
+    if (g_ov->gl_ready) {
+        skin().unload();
+        ImGui_ImplOpenGL3_Shutdown();
+    }
     ImGui::DestroyContext(g_ov->ctx);
     ImGui::SetCurrentContext(prev == g_ov->ctx ? nullptr : prev);
     delete g_ov;
