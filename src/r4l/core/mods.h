@@ -29,6 +29,8 @@ struct ModGroup {
     std::vector<int> features;  // indexes into ModCatalog::features
 };
 
+bool zip_has_manifest(const std::string& path, std::string* err);
+
 class ModCatalog {
 public:
     void bind(const RecompLauncherCModProvider* p) { p_ = p; }
@@ -44,6 +46,14 @@ public:
     bool set_option(ModFeature& f, const ModOption& o, const std::string& value);
     bool commit(const std::string& disc_path, std::string* err);
     std::string last_error() const;
+
+    // Install / remove packages (launcher only; not while a game runs).
+    bool can_install() const { return p_ && p_->install_archive; }
+    // Checks the file is a zip whose entries include a manifest.toml before
+    // handing it to the provider, which does the real validation.
+    bool install(const std::string& archive_path, std::string* err);
+    bool remove(const RecompLauncherCModPackage& pkg, std::string* err);
+    std::string archive_patterns() const;  // "psxmod;zip"
     bool dirty() const { return dirty_; }
     // Overlay: forward edits to the running game. Returns 1 if live, 0 if the
     // change waits for a restart (recorded in needs_restart).

@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 
 #include <cstddef>
+#include <mutex>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -191,6 +192,40 @@ void App::draw_mods() {
         ImGui::TextDisabled("This build has no mod support.");
         return;
     }
+    if (mode == Mode::Launcher && mods.can_install()) {
+        if (ImGui::Button("Install mod...")) {
+            static std::string patterns;
+            patterns = mods.archive_patterns();
+            static SDL_DialogFileFilter filter;
+            filter = SDL_DialogFileFilter{"Mod archive", patterns.c_str()};
+            SDL_ShowOpenFileDialog(
+                [](void* user, const char* const* files, int) {
+                    App* a = static_cast<App*>(user);
+                    if (!files || !files[0]) return;
+                    std::lock_guard<std::mutex> lk(a->job.mu);
+                    a->pending_install = files[0];
+                },
+                this, SDL_GL_GetCurrentWindow(), &filter, 1, nullptr, false);
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("Installed mods go to mods/installed and are checked before they load.");
+    }
+    {
+        std::string path;
+        {
+            std::lock_guard<std::mutex> lk(job.mu);
+            path.swap(pending_install);
+        }
+        if (!path.empty()) {
+            std::string err;
+            if (mods.install(path, &err)) {
+                s.status = "Installed " + path.substr(path.find_last_of("/\\") + 1);
+                mods.refresh(false);
+            } else {
+                s.status = "Mod not installed: " + err;
+            }
+        }
+    }
     const float w = ImGui::GetContentRegionAvail().x;
     ImGui::BeginChild("##modlist", ImVec2(w * 0.5f, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_NavFlattened);
     for (const ModGroup& grp : mods.groups) {
@@ -265,6 +300,22 @@ void App::draw_mods() {
             section("Source");
             ImGui::TextDisabled("%s", f.info.source_url);
         }
+        if (mode == Mode::Launcher)
+            for (const auto& pk : mods.packages)
+                if (!std::strcmp(pk.id, f.info.package_id) && pk.removable) {
+                    section("Package");
+                    if (ImGui::Button("Remove this mod")) {
+                        std::string err;
+                        if (mods.remove(pk, &err)) {
+                            s.status = std::string("Removed ") + pk.name;
+                            selected_feature = -1;
+                            mods.refresh(false);
+                        } else {
+                            s.status = err;
+                        }
+                    }
+                    break;
+                }
     }
     ImGui::EndChild();
 }

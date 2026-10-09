@@ -1,6 +1,7 @@
 // test_core.cpp — settings/config round-trips and the preset tracker.
 #include "r4l/core/binds.h"
 #include "r4l/core/ini.h"
+#include "r4l/core/mods.h"
 #include "r4l/core/quality.h"
 #include "r4l/core/session.h"
 #include "r4l/core/skin_model.h"
@@ -246,6 +247,27 @@ static void test_json_and_skin(const std::string& skins, const std::string& dir)
     CHECK(!load_skin_model(bad, &b, &err));
 }
 
+static void test_mod_archive(const std::string& dir) {
+    std::string err;
+    spit(dir + "/notzip.psxmod", "hello");
+    CHECK(!zip_has_manifest(dir + "/notzip.psxmod", &err) && err.find("Not a mod archive") == 0);
+    CHECK(!zip_has_manifest(dir + "/missing.psxmod", &err));
+    // Minimal stored zip with pkg/1.0.0/manifest.toml, then one without.
+    auto zip = [&](const std::string& path, const std::string& name) {
+        std::string d = "id = \"x\"\n", z;
+        auto le16 = [&](unsigned v) { z += char(v & 255); z += char(v >> 8); };
+        auto le32 = [&](unsigned long v) { le16(v & 0xffff); le16(v >> 16); };
+        z += "PK"; z += char(3); z += char(4);
+        le16(10); le16(0); le16(0); le16(0); le16(0); le32(0); le32(d.size()); le32(d.size());
+        le16(name.size()); le16(0); z += name; z += d;
+        spit(path, z);
+    };
+    zip(dir + "/good.psxmod", "pkg/1.0.0/manifest.toml");
+    CHECK(zip_has_manifest(dir + "/good.psxmod", &err));
+    zip(dir + "/bad.psxmod", "pkg/readme.txt");
+    CHECK(!zip_has_manifest(dir + "/bad.psxmod", &err) && err == "The archive has no manifest.toml");
+}
+
 int main(int argc, char** argv) {
     const std::string dir = tmpdir();
     test_ini_preserves_foreign_lines();
@@ -255,6 +277,7 @@ int main(int argc, char** argv) {
     test_sidecars_and_window(dir);
     test_quality();
     test_handoff(dir);
+    test_mod_archive(dir);
     test_json_and_skin(argc > 1 ? argv[1] : "assets/skins", dir);
     std::printf("r4l-core-tests: %s (%d failures)\n", g_fail ? "FAIL" : "ok", g_fail);
     return g_fail ? 1 : 0;

@@ -142,6 +142,13 @@ int n_chat_get(void*, int i, RecompLauncherCNetplayChatMessage* m) {
     m->is_system = i != 1;
     return 1;
 }
+int n_swap_req(void*, int) { return 1; }
+int n_swap_in(void*, char* who, size_t cap, int* from) {
+    std::snprintf(who, cap, "Reiko");
+    if (from) *from = 1;
+    return lobby() ? 1 : 0;
+}
+int n_swap_resp(void*, int) { return 1; }
 int n_addr(void*, int i, RecompLauncherCNetplayLocalAddress* a) {
     if (i) return 0;
     std::snprintf(a->address, sizeof a->address, "192.168.1.20:7777");
@@ -190,11 +197,13 @@ void fill(RecompLauncherCGameInfo* gi, RecompLauncherCModProvider* mp, RecompLau
     mp->feature_count = m_fcount; mp->feature_get = m_fget; mp->feature_option_get = m_optget;
     mp->feature_choice_get = m_chget; mp->feature_enable = m_enable; mp->feature_set_option = m_setopt;
     mp->commit = m_commit;
+    mp->install_archive = [](void*, const char*) { return 1; };
     gi->mods = mp;
     *np = RecompLauncherCNetplayCallbacks{};
     np->connected = n_connected; np->pump = n_pump; np->in_lobby = n_in_lobby; np->is_host = n_is_host;
     np->lobby_max_slots = n_max; np->member_count = n_mcount; np->member_get = n_mget;
     np->all_ready = n_all_ready; np->list_count = n_lcount; np->list_get = n_lget;
+    np->seat_swap_request = n_swap_req; np->seat_swap_incoming = n_swap_in; np->seat_swap_respond = n_swap_resp;
     np->chat_count = n_chat_count; np->chat_get = n_chat_get; np->local_address_get = n_addr;
     gi->netplay_supported = 1; gi->netplay = np;
 }

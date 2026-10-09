@@ -78,6 +78,7 @@ struct App {
     Screen last_focus_screen = Screen::Count;
     int last_nav_hover = -1;
     std::string skin_dir;
+    std::string pending_install;  // set by the file dialog (any thread), under job.mu
     float ui_scale = 0;
     Screen focus_request = Screen::Count;  // move nav focus once
     bool content_focus = false;

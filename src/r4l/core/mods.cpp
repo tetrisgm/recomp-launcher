@@ -104,3 +104,75 @@ std::string ModCatalog::last_error() const {
 }
 
 }  // namespace r4l
+
+namespace r4l {
+
+bool zip_has_manifest(const std::string& path, std::string* err) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) {
+        if (err) *err = "Cannot open " + path;
+        return false;
+    }
+    unsigned char sig[4] = {0};
+    const size_t n = std::fread(sig, 1, 4, f);
+    if (n != 4 || sig[0] != 'P' || sig[1] != 'K' || sig[2] != 3 || sig[3] != 4) {
+        std::fclose(f);
+        if (err) *err = "Not a mod archive (expected a .zip / .psxmod file)";
+        return false;
+    }
+    // Walk local file headers looking for an entry named */manifest.toml.
+    std::fseek(f, 0, SEEK_SET);
+    bool found = false;
+    unsigned char h[30];
+    while (std::fread(h, 1, 30, f) == 30 && h[0] == 'P' && h[1] == 'K' && h[2] == 3 && h[3] == 4) {
+        const unsigned flags = h[6] | (h[7] << 8);
+        unsigned long comp = h[18] | (h[19] << 8) | (h[20] << 16) | ((unsigned long)h[21] << 24);
+        const unsigned name_len = h[26] | (h[27] << 8), extra = h[28] | (h[29] << 8);
+        std::string name(name_len, '\0');
+        if (std::fread(&name[0], 1, name_len, f) != name_len) break;
+        if (name == "manifest.toml" || (name.size() > 14 && name.compare(name.size() - 14, 14, "/manifest.toml") == 0)) {
+            found = true;
+            break;
+        }
+        if (flags & 8) break;  // sizes in a data descriptor: stop scanning, let the provider decide
+        std::fseek(f, static_cast<long>(extra + comp), SEEK_CUR);
+    }
+    std::fclose(f);
+    if (!found && err) *err = "The archive has no manifest.toml";
+    return found;
+}
+
+bool ModCatalog::install(const std::string& path, std::string* err) {
+    if (!can_install()) {
+        if (err) *err = "This build cannot install mods";
+        return false;
+    }
+    if (!zip_has_manifest(path, err)) return false;
+    if (!p_->install_archive(p_->ctx, path.c_str())) {
+        if (err) *err = last_error().empty() ? "The mod was rejected" : last_error();
+        return false;
+    }
+    dirty_ = true;
+    return true;
+}
+
+bool ModCatalog::remove(const RecompLauncherCModPackage& pkg, std::string* err) {
+    if (!p_ || !p_->remove_package || !pkg.removable) {
+        if (err) *err = "Bundled mods cannot be removed";
+        return false;
+    }
+    if (!p_->remove_package(p_->ctx, pkg.id, pkg.version)) {
+        if (err) *err = last_error().empty() ? "Could not remove the mod" : last_error();
+        return false;
+    }
+    dirty_ = true;
+    return true;
+}
+
+std::string ModCatalog::archive_patterns() const {
+    std::string ext = (p_ && p_->archive_extension && *p_->archive_extension) ? p_->archive_extension : ".psxmod";
+    if (!ext.empty() && ext[0] == '.') ext.erase(0, 1);
+    return ext == "zip" ? "zip" : ext + ";zip";
+}
+
+}  // namespace r4l

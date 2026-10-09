@@ -64,7 +64,7 @@ void App::draw_netplay() {
         for (int sl = 0; sl < seats && sl <= RECOMP_LAUNCHER_NETPLAY_MAX_MEMBERS; ++sl) {
             if (sl) ImGui::SameLine(0, 10);
             ImGui::PushID(sl);
-            ImGui::BeginChild("##seat", ImVec2(cw, 150), ImGuiChildFlags_AlwaysUseWindowPadding);
+            ImGui::BeginChild("##seat", ImVec2(cw, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
             ImGui::PushFont(theme().bold, theme().body_size * 1.3f);
             ImGui::TextColored(theme().accent, "P%d", sl + 1);
             ImGui::PopFont();
@@ -74,12 +74,33 @@ void App::draw_netplay() {
                 else chip(m[sl].ready ? "Ready" : "Not ready", m[sl].ready ? theme().ok : theme().text_dim);
                 if (m[sl].latency_ms > 0) ImGui::TextDisabled("%d ms", m[sl].latency_ms);
                 if (host && !m[sl].is_local && np->kick_member && ImGui::SmallButton("Kick")) np->kick_member(c, sl);
+                if (!m[sl].is_local && np->seat_swap_request) {
+                    if (!host) ImGui::SameLine();
+                    if (ImGui::SmallButton("Swap seats") && !np->seat_swap_request(c, sl))
+                        call_err("Swap not possible");
+                }
             } else {
                 ImGui::TextDisabled("Open seat");
                 if (np->seat_move_self && ImGui::SmallButton("Sit here")) np->seat_move_self(c, sl);
             }
             ImGui::EndChild();
             ImGui::PopID();
+        }
+        // Seat swaps: answer an incoming request, or show ours as pending.
+        if (np->seat_swap_incoming) {
+            char who[64] = {0};
+            int from = -1;
+            if (np->seat_swap_incoming(c, who, sizeof(who), &from)) {
+                ImGui::TextColored(theme().accent, "%s wants to swap with you (P%d)", who[0] ? who : "A player", from + 1);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Accept") && np->seat_swap_respond) np->seat_swap_respond(c, 1);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Decline") && np->seat_swap_respond) np->seat_swap_respond(c, 0);
+            } else if (np->seat_swap_outgoing && np->seat_swap_outgoing(c)) {
+                ImGui::TextDisabled("Swap requested, waiting for an answer...");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Cancel") && np->seat_swap_clear) np->seat_swap_clear(c);
+            }
         }
         ImGui::Dummy(ImVec2(0, 8));
         if (!host && np->set_ready) {
