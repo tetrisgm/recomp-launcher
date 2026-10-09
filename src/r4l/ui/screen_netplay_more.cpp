@@ -157,11 +157,11 @@ void netplay_draw_outside(App& a) {
             RecompLauncherCNetplayOnlinePlayer p{};
             if (!np->online_get(c, i, &p)) continue;
             ImGui::PushID(i + 3000);
-            script_mark((std::string("online:") + p.display_name).c_str());
             ImGui::Selectable((std::string(p.display_name) + " " + flag_text(p.country) +
                                (p.hosting ? std::string(" · ") + tr("hosting ") + p.lobby_name
                                           : p.in_lobby ? std::string(" · ") + tr("in a lobby") : ""))
                                   .c_str());
+            script_mark((std::string("online:") + p.display_name).c_str());
             netplay_player_menu(a, p.display_name, p.account);
             ImGui::PopID();
         }
