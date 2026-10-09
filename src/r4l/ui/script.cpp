@@ -68,6 +68,8 @@ bool Script::load(const std::string& path) {
 }
 
 void Script::step(App& app, Platform& plat) {
+    if (sleep_until_ && SDL_GetTicks() < sleep_until_) return;
+    sleep_until_ = 0;
     if (wait_ > 0) {
         --wait_;
         return;
@@ -85,6 +87,9 @@ void Script::step(App& app, Platform& plat) {
         SDL_Event e;
         if (op == "wait") {
             wait_ = std::max(1, std::atoi(rest.c_str()));
+            return;
+        } else if (op == "sleep") {  // wall-clock seconds (for multi-process tests)
+            sleep_until_ = SDL_GetTicks() + static_cast<Uint64>(std::atof(rest.c_str()) * 1000.0);
             return;
         } else if (op == "screen") {
             for (int i = 0; i < static_cast<int>(Screen::Count); ++i)

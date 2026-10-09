@@ -1,11 +1,12 @@
 // script.h — R4L_SCRIPT: drive the launcher from a text file (tests, the
 // recomp-ui LNG_SCRIPT equivalent). One action per line:
 //   screen <Name> | click <x> <y> | wheel <x> <y> <steps> | key <Scancode> |
-//   text <utf8> | wait <frames> | shot <png> | status <substring> | play | quit
+//   text <utf8> | wait <frames> | sleep <seconds> | shot <png> | status <substring> | play | quit
 // Coordinates are window points. `status` prints PASS/FAIL against the footer
 // status line. Results go to stderr as "[r4l-script] ...".
 #pragma once
 
+#include <SDL3/SDL_stdinc.h>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,7 @@ private:
     std::vector<std::string> lines_;
     size_t pc_ = 0;
     int wait_ = 0;
+    Uint64 sleep_until_ = 0;
     int failures_ = 0;
     int scrolls_ = 0;
     int content_x_ = 800;  // a point inside the content pane
