@@ -351,7 +351,7 @@ void App::draw_mods() {
                 this, SDL_GL_GetCurrentWindow(), &filter, 1, nullptr, false);
         }
     }
-    if (mode == Mode::Launcher && (S("mods.versions") || S("mods.install"))) {
+    if (mode == Mode::Launcher && S("mods.versions")) {
         ImGui::SameLine();
         if (ImGui::Button(mods_packages_view ? tr("Features") : tr("Packages"))) mods_packages_view = !mods_packages_view;
     }
