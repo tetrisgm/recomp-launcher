@@ -47,6 +47,27 @@ void App::draw_netplay() {
         if (np->clear_last_error) np->clear_last_error(c);
     };
 
+    // The lobby server answers some requests later (a refused Start, a
+    // kicked join): surface whatever it said, once, in the status line.
+    if (np->last_error) {
+        const char* e = np->last_error(c);
+        if (e && *e) {
+            static const struct { const char* code; const char* text; } kWhy[] = {
+                {"relay_unavailable", "The server could not start the match: it cannot relay a room with "
+                                      "spectators seated, or a guest could not reach the host"},
+                {"need_players", "Waiting for another player"},
+                {"missing_endpoints", "The players could not reach each other"},
+                {"ice_not_connected", "The players could not reach each other"},
+                {"not_host", "Only the host can start"},
+            };
+            std::string msg = e;
+            for (const auto& w : kWhy)
+                if (std::strcmp(e, w.code) == 0) msg = tr(w.text);
+            np_status = msg;
+            if (np->clear_last_error) np->clear_last_error(c);
+        }
+    }
+
     // Identity + connection
     section("You");
     ImGui::SetNextItemWidth(320);
