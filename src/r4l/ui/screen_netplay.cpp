@@ -18,7 +18,7 @@ void netplay_player_menu(App& a, const char* name, const char* account);
 // Lobby server error codes, in words a player can act on.
 static std::string lobby_error_text(const char* code) {
     static const struct { const char* code; const char* text; } kWhy[] = {
-        {"login_required", "This server needs you to sign in to host. You can still join rooms"},
+        {"login_required", "This server only accepts signed-in players (Discord). Sign in to host, join or see rooms"},
         {"need_account", "Sign in to use this"},
         {"relay_unavailable", "The server could not start the match: it cannot relay a room with "
                               "spectators seated, or a guest could not reach the host"},
@@ -62,6 +62,7 @@ void App::draw_netplay() {
     netplay_draw_modals(*this);
     auto call_err = [&](const char* what) {
         const char* e = np->last_error ? np->last_error(c) : nullptr;
+        if (e && std::strcmp(e, "login_required") == 0) np_login_required = true;
         np_status = std::string(what) + (e && *e ? ": " + lobby_error_text(e) : "");
         if (np->clear_last_error) np->clear_last_error(c);
     };
@@ -71,6 +72,7 @@ void App::draw_netplay() {
     if (np->last_error) {
         const char* e = np->last_error(c);
         if (e && *e) {
+            if (std::strcmp(e, "login_required") == 0) np_login_required = true;
             std::string msg = lobby_error_text(e);
             np_status = msg;
             if (np->clear_last_error) np->clear_last_error(c);
@@ -291,7 +293,9 @@ void App::draw_netplay() {
     ImGui::InputTextWithHint("##code", "Lobby code", np_join_code, sizeof(np_join_code));
     script_mark("field:code");
     ImGui::SameLine();
-    if (ImGui::Button("Join##code", ImVec2(-1, 0)) && np->join && np_join_code[0]) {
+    const bool join_code = ImGui::Button("Join##code", ImVec2(-1, 0));
+    script_mark("join:code");
+    if (join_code && np->join && np_join_code[0]) {
         char bind[96] = {0};
         if (np->join(c, np_join_code, np_password, bind) < 0) call_err("Join failed");
     }

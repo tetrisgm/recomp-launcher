@@ -116,7 +116,10 @@ void netplay_draw_outside(App& a) {
                 ImGui::TextColored(theme().bad, "%s", np->account_error(c));
             if (ImGui::Button(tr("Sign in")) && np->account_login_begin) np->account_login_begin(c);
             ImGui::SameLine();
-            ImGui::TextDisabled("%s", tr("Optional. Guests can host and join."));
+            if (a.np_login_required)
+                ImGui::TextColored(theme().warn, "%s", tr("This server only accepts signed-in players."));
+            else
+                ImGui::TextDisabled("%s", tr("Optional on most servers: guests can host and join."));
         }
     }
     if (a.S("netplay.automatch") && np->automatch_available && np->automatch_available(c)) {

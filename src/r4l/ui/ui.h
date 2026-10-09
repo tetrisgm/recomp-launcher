@@ -101,6 +101,7 @@ struct App {
     bool np_lan_only = false;
     bool np_connected_once = false;
     std::string np_status;
+    bool np_login_required = false;  // the lobby server refused a guest (DISCORD_REQUIRED)
     char np_url[160] = "";
     char np_handle[64] = "";
     char np_server_chat[200] = "";
