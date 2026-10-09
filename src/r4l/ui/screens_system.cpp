@@ -13,6 +13,7 @@
 #include <SDL3/SDL.h>
 
 #include <cstddef>
+#include <filesystem>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -166,13 +167,10 @@ void App::ensure_disc_assets() {
     std::string src;
     std::getline(m, src);
     if (src == d.path) return;  // already extracted from this disc
-#if defined(_WIN32)
-    _mkdir(root.c_str());
-    _mkdir(dir.c_str());
-#else
-    mkdir(root.c_str(), 0755);
-    mkdir(dir.c_str(), 0755);
-#endif
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+    }
     char err[256] = {0};
     if (title->extract_disc_assets(d.path.c_str(), dir.c_str(), err, sizeof err)) {
         std::ofstream(marker) << d.path << "\n";
