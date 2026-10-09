@@ -334,6 +334,7 @@ void App::draw_mods() {
     // Toolbar: search, install, packages view, disable all.
     ImGui::SetNextItemWidth(240);
     ImGui::InputTextWithHint("##search", tr("Search mods"), mods_search, sizeof mods_search);
+    script_mark("Search mods");
     if (mode == Mode::Launcher && S("mods.install") && mods.can_install()) {
         ImGui::SameLine();
         if (ImGui::Button(tr("Install mod..."))) {
@@ -491,6 +492,7 @@ void App::draw_mods() {
             const float rw = ImGui::GetContentRegionAvail().x;
             if (ImGui::Selectable("##f", selected_feature == idx, 0, ImVec2(rw - 70, theme().row_h)))
                 selected_feature = idx;
+            script_mark(f.info.name);
             if (ImGui::IsItemFocused()) selected_feature = idx;
             ImDrawList* dl = ImGui::GetWindowDrawList();
             const float fs = ImGui::GetFontSize();

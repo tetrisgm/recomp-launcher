@@ -149,7 +149,7 @@ void Script::step(App& app, Platform& plat) {
         } else if (op == "tap") {  // click the item with this label (last frame)
             auto it = g_prev.find(rest);
             const float vh = ImGui::GetIO().DisplaySize.y;
-            const bool visible = it != g_prev.end() && it->second.Min.y >= 0 && it->second.Max.y <= vh - 50;
+            const bool visible = it != g_prev.end() && it->second.Min.y >= 0 && it->second.Max.y <= vh * 0.86f;
             if (!visible) {
                 // Off screen? Scroll the content pane towards it and look again.
                 const bool up = it != g_prev.end() && it->second.Min.y < 0;
@@ -191,6 +191,20 @@ void Script::step(App& app, Platform& plat) {
             if (!ok) ++failures_;
         } else if (op == "top") {  // scroll the content pane back to the top
             for (int i = 0; i < 3; ++i) lines_.insert(lines_.begin() + static_cast<long>(pc_), "wheel " + std::to_string(content_x_) + " 420 40");
+        } else if (op == "find") {  // scroll until an item with this label is on screen
+            auto it = g_prev.find(rest);
+            const float vh = ImGui::GetIO().DisplaySize.y;
+            if (it == g_prev.end() || it->second.Min.y < 0 || it->second.Max.y > vh * 0.86f) {
+                if (scrolls_++ < 10) {
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_),
+                                  {"wheel " + std::to_string(content_x_) + " 420 -3", "wait 2", "find " + rest});
+                    continue;
+                }
+            }
+            scrolls_ = 0;
+            const bool ok = it != g_prev.end();
+            std::fprintf(stderr, "[r4l-script] %s find \"%s\"\n", ok ? "PASS" : "FAIL", rest.c_str());
+            if (!ok) ++failures_;
         } else if (op == "seen") {  // an item with this label was drawn last frame
             const bool ok = g_prev.count(rest) != 0;
             if (!ok && std::getenv("R4L_SCRIPT_DEBUG")) for (auto& kv : g_prev) std::fprintf(stderr, "  item: %s\n", kv.first.c_str());

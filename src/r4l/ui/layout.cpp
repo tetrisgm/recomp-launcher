@@ -4,6 +4,7 @@
 #include "recomp_launcher_overlay.h"
 #include "skin.h"
 #include "ui.h"
+#include "script.h"
 
 #include <SDL3/SDL.h>
 
@@ -245,6 +246,10 @@ void App::frame() {
         }
         ImGui::PopStyleColor(3);
         const bool hov = ImGui::IsItemHovered() || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
+        {
+            std::string nl = tr((sc == Screen::Home && setup_mode) ? "Disc setup" : screen_name(sc));
+            script_mark(("nav:" + nl).c_str());
+        }
         if (hov && last_nav_hover != i) {
             if (last_nav_hover >= 0) sk.play("move");
             last_nav_hover = i;
