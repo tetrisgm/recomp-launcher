@@ -153,8 +153,10 @@ void Script::step(App& app, Platform& plat) {
             if (!visible) {
                 // Off screen? Scroll the content pane towards it and look again.
                 const bool up = it != g_prev.end() && it->second.Min.y < 0;
-                if (scrolls_++ < 10) {
-                    lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(content_x_) + " 420 " + (up ? "3" : "-3"),
+                if (scrolls_++ < 14) {
+                    // Alternate between the left and right halves of the content (two-pane pages).
+                    const int x = (scrolls_ & 1) ? 300 : content_x_;
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(x) + " 420 " + (up ? "3" : "-3"),
                                                                             "wait 2", "tap " + rest});
                     continue;
                 }
