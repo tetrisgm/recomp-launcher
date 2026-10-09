@@ -1,5 +1,6 @@
 // screen_netplay.cpp — host / join (code or address) / lobby with seats P1..Pn.
 #include "ui.h"
+#include "script.h"
 
 #include <cstdio>
 #include <cstring>
@@ -174,7 +175,9 @@ void App::draw_netplay() {
             }
             ImGui::EndChild();
             ImGui::SetNextItemWidth(-90);
-            if (ImGui::InputText("##say", np_chat, sizeof(np_chat), ImGuiInputTextFlags_EnterReturnsTrue) && np_chat[0]) {
+            const bool said = ImGui::InputText("##say", np_chat, sizeof(np_chat), ImGuiInputTextFlags_EnterReturnsTrue);
+            script_mark("chat:say");
+            if (said && np_chat[0]) {
                 if (np->chat_send) np->chat_send(c, np_chat);
                 np_chat[0] = 0;
             }
@@ -288,7 +291,9 @@ void App::draw_netplay() {
             char row[200];
             std::snprintf(row, sizeof(row), "%s   %d/%d   %s%d ms", l.name, l.player_count, l.max_slots,
                           l.has_password ? "locked  " : "", l.latency_ms);
-            if (ImGui::Selectable(row, false, 0, ImVec2(0, theme().row_h)) && np->join) {
+            const bool picked = ImGui::Selectable(row, false, 0, ImVec2(0, theme().row_h));
+            script_mark((std::string("lobby:") + l.name).c_str());
+            if (picked && np->join) {
                 if (l.has_password) {
                     np_join_lobby = l.lobby_id;
                     np_show_password = true;

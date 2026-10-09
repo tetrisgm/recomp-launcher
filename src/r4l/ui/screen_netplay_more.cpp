@@ -4,6 +4,7 @@
 // tuning, spectators, memory card sharing, lobby mods and transfers, session
 // variants, Link lobbies. Each block is gated by a surface key.
 #include "ui.h"
+#include "script.h"
 
 #include "r4l/core/ini.h"
 
@@ -156,6 +157,7 @@ void netplay_draw_outside(App& a) {
             RecompLauncherCNetplayOnlinePlayer p{};
             if (!np->online_get(c, i, &p)) continue;
             ImGui::PushID(i + 3000);
+            script_mark((std::string("online:") + p.display_name).c_str());
             ImGui::Selectable((std::string(p.display_name) + " " + flag_text(p.country) +
                                (p.hosting ? std::string(" · ") + tr("hosting ") + p.lobby_name
                                           : p.in_lobby ? std::string(" · ") + tr("in a lobby") : ""))
@@ -180,8 +182,9 @@ void netplay_draw_outside(App& a) {
             }
             ImGui::EndChild();
             ImGui::SetNextItemWidth(-90);
-            if (ImGui::InputText("##ssay", a.np_server_chat, sizeof a.np_server_chat, ImGuiInputTextFlags_EnterReturnsTrue) &&
-                a.np_server_chat[0] && np->server_chat_send) {
+            const bool said = ImGui::InputText("##ssay", a.np_server_chat, sizeof a.np_server_chat, ImGuiInputTextFlags_EnterReturnsTrue);
+            script_mark("chat:server");
+            if (said && a.np_server_chat[0] && np->server_chat_send) {
                 np->server_chat_send(c, a.np_server_chat);
                 a.np_server_chat[0] = 0;
             }
