@@ -229,6 +229,11 @@ void App::draw_netplay() {
     if (row_combo(tr("Seats"), &si, kSeats, std::max(1, std::min(3, max_seats - 1)))) np_seats = si + 2;
     int lan = np_lan_only ? 1 : 0;
     if (row_toggle("LAN only", &lan)) np_lan_only = lan != 0;
+    // Applied by the next create, so it belongs on the form (LAN rooms have no gallery).
+    if (!np_lan_only && S("netplay.spectators") && np->allow_spectators_get && np->allow_spectators_set) {
+        int v = np->allow_spectators_get(c);
+        if (row_toggle(tr("Allow spectators"), &v)) np->allow_spectators_set(c, v);
+    }
     ImGui::BeginDisabled(!s.media_ready());
     if (big_button("Host", ImVec2(-1, 48), true) && np->create) {
         char endpoint[96] = {0};
