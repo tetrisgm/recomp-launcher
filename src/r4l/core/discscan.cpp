@@ -3,6 +3,7 @@
 #include "session.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdlib>
 #include <dirent.h>
@@ -22,8 +23,10 @@ std::string lower_ext(const std::string& n) {
     for (char& c : e) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return e;
 }
-void walk(const std::string& dir, int depth, size_t& budget, std::vector<std::string>& out) {
-    if (depth < 0 || budget == 0) return;
+// Stops early when `stop` returns true for a found image (first match wins).
+bool walk(const std::string& dir, int depth, size_t& budget, std::vector<std::string>& out,
+          const std::function<bool(const std::string&)>* stop, std::chrono::steady_clock::time_point deadline) {
+    if (depth < 0 || budget == 0 || std::chrono::steady_clock::now() > deadline) return false;
     DIR* d = opendir(dir.c_str());
     if (!d) return;
     std::vector<std::string> subdirs;
@@ -39,11 +42,19 @@ void walk(const std::string& dir, int depth, size_t& budget, std::vector<std::st
             continue;
         }
         const std::string ext = lower_ext(n);
-        if (ext == "cue" || ext == "chd" || ext == "iso") out.push_back(p);
+        if (ext == "cue" || ext == "chd" || ext == "iso") {
+            out.push_back(p);
+            if (stop && (*stop)(p)) {
+                closedir(d);
+                return true;
+            }
+        }
     }
     closedir(d);
     std::sort(subdirs.begin(), subdirs.end());
-    for (const auto& s : subdirs) walk(s, depth - 1, budget, out);
+    for (const auto& s : subdirs)
+        if (walk(s, depth - 1, budget, out, stop, deadline)) return true;
+    return false;
 }
 }  // namespace
 
@@ -61,8 +72,21 @@ std::vector<std::string> default_scan_roots(const std::string& exe_dir) {
     }
     for (const char* media : {"/run/media", "/media", "/Volumes"})
         if (DIR* d = opendir(media)) {  // removable drives (Steam Deck SD card, USB)
-            while (dirent* e = readdir(d))
-                if (e->d_name[0] != '.') r.push_back(join_path(media, e->d_name));
+            while (dirent* e = readdir(d)) {
+                if (e->d_name[0] == '.') continue;
+                const std::string p = join_path(media, e->d_name);
+                struct stat lst{};
+                // /Volumes/<boot disk> is a symlink to "/": never walk the system disk.
+                if (lstat(p.c_str(), &lst) == 0 && S_ISLNK(lst.st_mode)) continue;
+                r.push_back(p);
+                // /run/media/<user>/<card>: one level more on Linux.
+                if (std::string(media) == "/run/media")
+                    if (DIR* u = opendir(p.c_str())) {
+                        while (dirent* c = readdir(u))
+                            if (c->d_name[0] != '.') r.push_back(join_path(p, c->d_name));
+                        closedir(u);
+                    }
+            }
             closedir(d);
         }
     std::vector<std::string> out;
@@ -75,7 +99,8 @@ std::vector<std::string> default_scan_roots(const std::string& exe_dir) {
 std::vector<std::string> scan_disc_images(const std::vector<std::string>& roots, int max_depth, size_t max_entries) {
     std::vector<std::string> out;
     size_t budget = max_entries;
-    for (const auto& r : roots) walk(r, max_depth, budget, out);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    for (const auto& r : roots) walk(r, max_depth, budget, out, nullptr, deadline);
     std::set<std::string> seen;
     std::vector<std::string> uniq;
     for (const auto& p : out)
@@ -85,8 +110,12 @@ std::vector<std::string> scan_disc_images(const std::vector<std::string>& roots,
 
 std::string find_disc(const std::vector<std::string>& roots, const std::function<bool(const std::string&)>& accept,
                       int max_depth) {
-    for (const auto& p : scan_disc_images(roots, max_depth))
-        if (accept(p)) return p;
+    // Verify as we go and stop at the first accepted image; bounded in time.
+    std::vector<std::string> seen;
+    size_t budget = 20000;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(4);
+    for (const auto& r : roots)
+        if (walk(r, max_depth, budget, seen, &accept, deadline)) return seen.back();
     return "";
 }
 
