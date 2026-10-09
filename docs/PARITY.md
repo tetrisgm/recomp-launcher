@@ -13,7 +13,7 @@ once against the real R4 runtime (hidden window, `R4L_SCRIPT`, netplay against a
 local recomp-net lobby server, LAN race launched with lockstep armed on both peers).
 **stand-in only** = exercised on `r4l-fake-host` only; most of these are hidden or
 not wired on R4 (no BIOS choice, precompiled, single disc, no Discord/automatch).
-38 rows verified on R4, 36 stand-in only.
+45 rows verified on R4, 29 stand-in only.
 
 `tests/parity_check.py` (ctest `r4l_parity`) checks that every GameInfo,
 NetplayCallbacks and ModProvider member is used by the launcher, or listed in the
@@ -43,10 +43,10 @@ last section.
 | Memory cards | 15-block view (`memcard_inspect`), enable, choose, new/format | LI panel_save_draw, memcard_format.c | Settings › Memory cards (own formatter, `core/memcard.cpp`) | `system.memcards` | verified on R4 |
 | Video | Graphics preset, Custom, Re-detect (`quality_*`) | LI draw_quality_preset_row | Graphics › Preset, plus **Auto** (detected) | `graphics.preset`, `graphics.redetect` | stand-in only |
 | Video | Window size | LI row_window_scale | Graphics › Window width | `graphics.window_size` | stand-in only |
-| Video | Renderer (`renderer_labels/ids`) | LI 4004 | Graphics › Renderer (restart-only in-game) | `graphics.renderer` | stand-in only |
+| Video | Renderer (`renderer_labels/ids`) | LI 4004 | Graphics › Renderer (restart-only in-game) | `graphics.renderer` | verified on R4 |
 | Video | Render / present thread, Smooth motion | LI 3853 | Graphics › Pipeline, Smooth motion | `graphics.render_thread`, `graphics.present_thread`, `graphics.frame_generation` | verified on R4 |
-| Video | Internal resolution / supersampling | LI 4040 / 4072 | Graphics › Resolution | `graphics.internal_resolution`, `graphics.supersampling` | stand-in only |
-| Video | Dynamic resolution + lowest resolution | LI 4086 | Graphics › Resolution | `graphics.dynamic_resolution` | stand-in only |
+| Video | Internal resolution / supersampling | LI 4040 / 4072 | Graphics › Resolution | `graphics.internal_resolution`, `graphics.supersampling` | verified on R4 (Auto-pinned; supersampling not offered by R4) |
+| Video | Dynamic resolution + lowest resolution | LI 4086 | Graphics › Resolution | `graphics.dynamic_resolution` | verified on R4 (Auto-pinned) |
 | Video | Screen layout (windowed / fullscreen / exclusive) | LI 4112 | Graphics › Screen | `graphics.fullscreen` | verified on R4 |
 | Video | Texture / FMV filtering, antialiasing | LI 4134–4169 | Graphics › Image | `graphics.texture_filter`, `graphics.fmv_filter`, `graphics.antialiasing` | verified on R4 |
 | Video | Perspective textures / geometry | LI 4196 | Graphics › Image | `graphics.geometry` | stand-in only |
@@ -69,16 +69,16 @@ last section.
 | Netplay | Connect, list, scope (All / LAN / Online) | LI np_connect_and_list | Netplay › Open lobbies | `netplay.browse` | verified on R4 |
 | Netplay | Host (password, LAN, seats, `create_max_slots`, `create_default_rollback`) | LI draw_netplay_host_modal | Netplay › Host a race | `netplay.host` | verified on R4 |
 | Netplay | Join by code, password, by address, resume room / endpoint | LI np_join_selected, password, direct modals | Netplay › Join a race, password prompt | `netplay.join` | verified on R4 |
-| Netplay | Seats, kick, move, swap | LI draw_lobby_seat_row | Lobby seat cards | `netplay.lobby`, `netplay.seat_swap` | stand-in only |
+| Netplay | Seats, kick, move, swap | LI draw_lobby_seat_row | Lobby seat cards | `netplay.lobby`, `netplay.seat_swap` | verified on R4 |
 | Netplay | Ready, start, launch, launch gate | LI np_lobby_start, np_try_launch | Lobby | `netplay.lobby` | verified on R4 |
 | Netplay | Lobby chat, server chat, players online, country | LI draw_lobby_chat, draw_server_chat, draw_netplay_online_panel | Lobby chat; Players online + server chat (country code shown as text) | `netplay.chat`, `netplay.online` | verified on R4 |
 | Netplay | Report, block (`chat_report`, `set_blocks`, moderation.ini) | LI np_player_menu | Right-click a player: Report… / Block; blocked chat hidden | `netplay.moderation` | stand-in only |
 | Netplay | Account (Discord) | LI draw_account_section | Netplay › Account | `netplay.account` | stand-in only |
-| Netplay | Automatch (rulesets, queue, accept) | LI draw_netplay_automatch_modal | Netplay › Quick match | `netplay.automatch` | stand-in only |
-| Netplay | Match settings (delay, prediction, rollback, relay, TURN, multitap analog, relay status) | LI draw_lobby_match_settings | Lobby › Match settings | `netplay.tuning` | stand-in only |
-| Netplay | Spectators | LI 7859, 8505 | Lobby › Spectators | `netplay.spectators` | stand-in only |
-| Netplay | Memory card offer / guest card | LI draw_lobby_memcard_toggle | Lobby › Memory cards | `netplay.memcard` | stand-in only |
-| Netplay | Lobby mods, downloads, transfers | LI draw_lobby_mods_popup | Lobby › Lobby mods | `netplay.mod_transfer` | stand-in only |
+| Netplay | Automatch (rulesets, queue, accept) | LI draw_netplay_automatch_modal | Netplay › Quick match | `netplay.automatch` | stand-in only (needs a signed-in account; no R4 ruleset) |
+| Netplay | Match settings (delay, prediction, rollback, relay, TURN, multitap analog, relay status) | LI draw_lobby_match_settings | Lobby › Match settings | `netplay.tuning` | verified on R4 (relay used for the race) |
+| Netplay | Spectators | LI 7859, 8505 | Lobby › Spectators | `netplay.spectators` | verified on R4 (join, gallery, seat as player; watching a race refused by runtime: no relay slot) |
+| Netplay | Memory card offer / guest card | LI draw_lobby_memcard_toggle | Lobby › Memory cards | `netplay.memcard` | verified on R4 |
+| Netplay | Lobby mods, downloads, transfers | LI draw_lobby_mods_popup | Lobby › Lobby mods | `netplay.mod_transfer` | stand-in only (R4 netplay is vanilla) |
 | Netplay | Session variant, Link lobby kind | (header; R4 host does not wire) | Lobby › Mode, Link battle toggle | `netplay.variant` | stand-in only |
 | Netplay | Handoff ingest (`RECOMP_NETPLAY_LAUNCH`) | launcher_ng_capi.c | Same, before any window | — | stand-in only |
 | Mods | Packages, versions, install, remove, legacy switch / options, author links | LI draw_mod_packages | Mods › Packages | `mods.install`, `mods.versions` | verified on R4 |
