@@ -412,7 +412,7 @@ void App::draw_mods() {
             if (!matches(p.name, p.id)) continue;
             ImGui::PushID(i);
             char row[300];
-            std::snprintf(row, sizeof row, "%s  %s%s", p.name, p.version, p.removable ? "" : tr("  (bundled)"));
+            std::snprintf(row, sizeof row, "%s  %s", p.name, p.version);
             if (ImGui::Selectable(row, selected_package == i, 0, ImVec2(0, theme().row_h))) selected_package = i;
             ImGui::PopID();
         }
@@ -457,6 +457,8 @@ void App::draw_mods() {
                     if (ImGui::RadioButton(v.version, v.selected != 0) && mods.select_version(pv.info, v.version))
                         mods.refresh(S("mods.experimental"));
             }
+            if (!pv.info.removable && S("mods.install"))
+                ImGui::TextDisabled("%s", tr("Bundled mods, and mods with features turned on, cannot be removed."));
             if (pv.info.removable && S("mods.install")) {
                 section(tr("Package"));
                 if (ImGui::Button(tr("Remove this mod"))) {
