@@ -356,7 +356,10 @@ void App::draw_mods() {
     }
     if (mode == Mode::Launcher && S("mods.versions")) {
         ImGui::SameLine();
-        if (ImGui::Button(mods_packages_view ? tr("Features") : tr("Packages"))) mods_packages_view = !mods_packages_view;
+        if (ImGui::Button(mods_packages_view ? tr("Features") : tr("Packages"))) {
+            mods_packages_view = !mods_packages_view;
+            mods.refresh(S("mods.experimental"));  // removable / in-use state follows feature switches
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button(tr("Turn all off"))) ImGui::OpenPopup("disable_all");
