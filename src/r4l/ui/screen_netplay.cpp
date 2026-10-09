@@ -213,7 +213,7 @@ void App::draw_netplay() {
     const bool show_host = S("netplay.host"), show_join = S("netplay.join");
     const float half = (show_host && show_join) ? (ImGui::GetContentRegionAvail().x - 16) * 0.5f : -1.0f;
     if (show_host) {
-    ImGui::BeginChild("##host", ImVec2(half, 330), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::BeginChild("##host", ImVec2(half, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
     ImGui::PushFont(theme().bold, theme().body_size * 1.2f);
     ImGui::TextUnformatted("Host a race");
     ImGui::PopFont();
@@ -248,7 +248,7 @@ void App::draw_netplay() {
     }
     if (show_host && show_join) ImGui::SameLine(0, 16);
     if (show_join) {
-    ImGui::BeginChild("##join", ImVec2(half, 330), ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::BeginChild("##join", ImVec2(half, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
     ImGui::PushFont(theme().bold, theme().body_size * 1.2f);
     ImGui::TextUnformatted("Join a race");
     ImGui::PopFont();
