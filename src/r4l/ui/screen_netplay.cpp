@@ -175,6 +175,9 @@ void App::draw_netplay() {
             ImGui::SameLine();
         }
         if (ImGui::Button("Leave", ImVec2(120, 52)) && np->leave) np->leave(c);
+        // Repeat the status beside the buttons that cause it (the one at the
+        // top of the page is out of view once a lobby is open).
+        if (!np_status.empty()) ImGui::TextColored(theme().warn, "%s", np_status.c_str());
         if (host && np->input_delay_get && np->input_delay_set) {
             int d = np->input_delay_get(c);
             if (row_slider("Input delay", &d, 0, 8, "%d frames")) np->input_delay_set(c, d);
