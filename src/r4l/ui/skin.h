@@ -33,7 +33,9 @@ public:
     float s() const { return vp_.scale(); }                 // reference units -> pixels
     Rect rect(const std::string& name, const Rect& fallback, const Rect* parent = nullptr) const;
     bool has_rect(const std::string& name) const;
-    float metric(const std::string& k, float fb) const { return m_.metric(k, fb) * vp_.scale(); }
+    float metric(const std::string& k, float fb) const {
+        return m_.metric(k + "@" + screen_, m_.metric(k, fb)) * vp_.scale();  // "key@Screen" wins
+    }
     ImVec4 color(const std::string& k, const ImVec4& fb) const;
     std::string label(const std::string& k, const std::string& fb) const { return m_.label(k, fb); }
 

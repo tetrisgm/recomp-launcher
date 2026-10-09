@@ -223,7 +223,8 @@ Rect Skin::rect(const std::string& name, const Rect& fb, const Rect* parent) con
 }
 
 ImVec4 Skin::color(const std::string& k, const ImVec4& fb) const {
-    auto it = m_.palette.find(k);
+    auto it = m_.palette.find(k + "@" + screen_);  // per-screen override
+    if (it == m_.palette.end()) it = m_.palette.find(k);
     return it == m_.palette.end() ? fb : to_im(it->second);
 }
 
@@ -387,13 +388,15 @@ ImFont* Skin::imfont(const std::string& role) const {
 }
 
 float Skin::font_px(const std::string& role) const {
-    auto it = m_.fonts.find(role);
+    auto it = m_.fonts.find(role + "@" + screen_);
+    if (it == m_.fonts.end()) it = m_.fonts.find(role);
     if (it == m_.fonts.end()) it = m_.fonts.find("body");
     return (it == m_.fonts.end() ? 18.0f : it->second.size) * s();
 }
 
 ImVec2 Skin::text_size(const std::string& role, const std::string& str) const {
-    auto st = m_.fonts.find(role);
+    auto st = m_.fonts.find(role + "@" + screen_);
+    if (st == m_.fonts.end()) st = m_.fonts.find(role);
     const std::string t = (st != m_.fonts.end() && st->second.uppercase) ? upper(str) : str;
     auto bm = bitmaps_.find(role);
     const float px = font_px(role);
@@ -414,7 +417,8 @@ ImVec2 Skin::text_size(const std::string& role, const std::string& str) const {
 
 void Skin::text(ImDrawList* dl, const std::string& role, ImVec2 pos, const std::string& str, float align,
                 const ImVec4* override_color) const {
-    auto st = m_.fonts.find(role);
+    auto st = m_.fonts.find(role + "@" + screen_);
+    if (st == m_.fonts.end()) st = m_.fonts.find(role);
     TextStyle style = st != m_.fonts.end() ? st->second
                                            : (m_.fonts.count("body") ? m_.fonts.at("body") : TextStyle{});
     const std::string t = style.uppercase ? upper(str) : str;

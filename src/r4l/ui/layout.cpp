@@ -102,6 +102,11 @@ void App::frame() {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const float W = vp->WorkSize.x, H = vp->WorkSize.y;
     sk.begin_frame(W, H, std::string(overlay ? "Overlay." : "") + skin_key(screen), time);
+    if (screen != last_focus_screen) {  // per-screen palette overrides feed ImGui colours
+        last_focus_screen = screen;
+        apply_theme(*title, ui_scale > 0 ? ui_scale : 1.0f);
+        apply_skin_theme();
+    }
     const float u = sk.loaded() ? sk.s() : H / 720.0f;
     // Resolution independence for ordinary widgets: rescale the style when
     // the window height changes (the skin's own elements scale themselves).

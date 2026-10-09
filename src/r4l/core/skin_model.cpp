@@ -111,7 +111,9 @@ void apply_json(const Json& j, SkinModel* m) {
     m->base_height = static_cast<float>(j["base_height"].num(m->base_height));
     for (const auto& kv : j["palette"].obj) m->palette[kv.first] = col(kv.second, Color{}, &w, kv.first.c_str());
     for (const auto& kv : j["fonts"].obj) {
+        const std::string plain = kv.first.substr(0, kv.first.find('@'));
         const TextStyle base = m->fonts.count(kv.first) ? m->fonts[kv.first] :
+                               m->fonts.count(plain) ? m->fonts[plain] :
                                m->fonts.count("body") ? m->fonts["body"] : TextStyle{};
         m->fonts[kv.first] = parse_text(kv.second, base, &w);
     }

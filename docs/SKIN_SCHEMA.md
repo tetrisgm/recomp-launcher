@@ -87,8 +87,12 @@ Roles: `body` (all ordinary widgets), `heading` (screen titles), `display`
 
 ## layout regions
 
-Launcher: `rail`, `content`, `footer`, `brand`, `play_button`. Append
-`@<Screen>` (`rail@Home`) to override a region on one screen.
+Launcher: `rail`, `content`, `footer`, `brand`, `play_button`.
+
+Per-screen overrides: append `@<Screen>` to any layout region, palette token,
+font role or metric (`rail@Home`, `text@Graphics`, `heading@Controls`,
+`nav_item_height@Home`). Screens: Home, Graphics, Mods, Controls, Netplay,
+Setup, About, and `Overlay.<Screen>` in the in-game menu.
 Overlay: `overlay.panel` (relative to the viewport), then `overlay.rail`,
 `overlay.content`, `overlay.footer`, `overlay.brand` relative to the panel.
 
