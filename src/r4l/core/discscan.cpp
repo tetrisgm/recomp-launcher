@@ -28,7 +28,7 @@ bool walk(const std::string& dir, int depth, size_t& budget, std::vector<std::st
           const std::function<bool(const std::string&)>* stop, std::chrono::steady_clock::time_point deadline) {
     if (depth < 0 || budget == 0 || std::chrono::steady_clock::now() > deadline) return false;
     DIR* d = opendir(dir.c_str());
-    if (!d) return;
+    if (!d) return false;
     std::vector<std::string> subdirs;
     while (dirent* e = readdir(d)) {
         if (budget == 0) break;
