@@ -15,6 +15,11 @@ set(R4L_VERSION "0.1.0")
 option(RECOMP_UI_ENABLE_MODS "Show the Mods screen" ON)
 option(RECOMP_UI_SDL3 "SDL3 platform backend (the only one this launcher has)" ON)
 set(R4L_TITLE "r4" CACHE STRING "Title layer under titles/<id>/")
+# A game repo may own its title layer (manifest, art extraction, credits):
+# set R4L_TITLE_SOURCE to its .cpp before psxrecomp includes this file.
+if(NOT R4L_TITLE_SOURCE)
+    set(R4L_TITLE_SOURCE "${CMAKE_CURRENT_LIST_DIR}/titles/${R4L_TITLE}/title_${R4L_TITLE}.cpp")
+endif()
 set(R4L_UI_LANGUAGE "" CACHE STRING "Launcher UI language (assets/i18n/<code>.json), empty = English")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/recomp_gl.cmake")
 
@@ -48,7 +53,7 @@ set(R4L_SOURCES
     ${R4L_ROOT}/src/r4l/ui/screen_netplay_more.cpp
     ${R4L_ROOT}/src/r4l/ui/screens_system.cpp
     ${R4L_ROOT}/src/r4l/ui/screens_settings.cpp
-    ${R4L_ROOT}/titles/${R4L_TITLE}/title_${R4L_TITLE}.cpp
+    ${R4L_TITLE_SOURCE}
     ${R4L_IMGUI}/imgui.cpp
     ${R4L_IMGUI}/imgui_draw.cpp
     ${R4L_IMGUI}/imgui_tables.cpp

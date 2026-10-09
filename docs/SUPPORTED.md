@@ -6,6 +6,10 @@ layer's **surface manifest** (`titles/<id>/title_<id>.cpp`, `TitleLayer::surface
 
 ## How a title opts in
 
+The title layer is one C++ file. A game repo can own it: set
+`R4L_TITLE_SOURCE` to its path before psxrecomp's `runtime.cmake` is included
+(R4 keeps `launcher/title_r4.cpp`). `titles/r4/` here is the reference copy.
+
 ```cpp
 const SurfaceRule kSurface[] = {
     {"graphics.preset", Vis::Shown, "auto"},        // shown; Auto = detected preset
