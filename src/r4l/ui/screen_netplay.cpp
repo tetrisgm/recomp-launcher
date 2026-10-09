@@ -64,7 +64,8 @@ void App::draw_netplay() {
         ImGui::SameLine();
         if (ImGui::Button("Connect") && np->connect) {
             if (np->set_player_name) np->set_player_name(c, io->netplay_player_name);
-            if (!np->connect(c)) call_err("Connect failed");
+            if (np->connect(c) < 0) call_err("Connect failed");
+            else np_status.clear();
         }
     }
     if (!np_status.empty()) ImGui::TextColored(theme().warn, "%s", np_status.c_str());
@@ -108,7 +109,7 @@ void App::draw_netplay() {
                     np->move_member(c, sl, sl + 1);
                 if (!m[sl].is_local && np->seat_swap_request && S("netplay.seat_swap")) {
                     if (!host) ImGui::SameLine();
-                    if (ImGui::SmallButton("Swap seats") && !np->seat_swap_request(c, sl))
+                    if (ImGui::SmallButton("Swap seats") && np->seat_swap_request(c, sl) < 0)
                         call_err("Swap not possible");
                 }
             } else {
@@ -148,7 +149,7 @@ void App::draw_netplay() {
                 if (filled[sl]) { ++seated; ready += m[sl].ready ? 1 : 0; }
             const bool all = (np->all_ready && np->all_ready(c)) || (seated >= 2 && ready == seated);
             ImGui::BeginDisabled(!all || !s.media_ready());
-            if (big_button("Start race", ImVec2(200, 52), true) && !np->request_start(c, io)) call_err("Start failed");
+            if (big_button("Start race", ImVec2(200, 52), true) && np->request_start(c, io) < 0) call_err("Start failed");
             ImGui::EndDisabled();
             ImGui::SameLine();
         }
