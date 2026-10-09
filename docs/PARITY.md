@@ -14,6 +14,10 @@ local recomp-net lobby server, LAN race launched with lockstep armed on both pee
 Cross-machine (2026-10-09, Mac + Windows PC, R4 built with this launcher on both):
 direct IP both directions, lobby-server hosted both directions, and a 200 s race from
 the race savestate; rollback digests matched on every compared tick, 0 dispatch misses.
+Production lobby (ws://netplay.retcomm.net:8765, 2026-10-09): connects, but the server runs
+with DISCORD_REQUIRED, so an anonymous client gets `login_required` and cannot host, join or
+list rooms. Online rows are therefore verified against a local recomp-net-server on the LAN
+(Mac + Windows PC), not the public one; the launcher now says so instead of showing the code.
 A full Link Battle (Mac seat 0, PC seat 1, autopiloted, Helter Skelter) finished on both:
 928 digests compared, 0 mismatches, last common sim 29888 core c9f24a6a.
 **stand-in only** = exercised on `r4l-fake-host` only; most of these are hidden or
