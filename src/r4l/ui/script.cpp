@@ -153,7 +153,13 @@ void Script::step(App& app, Platform& plat) {
             if (!visible) {
                 // Off screen? Scroll the content pane towards it and look again.
                 const bool up = it != g_prev.end() && it->second.Min.y < 0;
-                if (scrolls_++ < 14) {
+                if (scrolls_ == 0 && it == g_prev.end()) {  // unknown position: start from the top
+                    ++scrolls_;
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_),
+                                  {"wheel 300 420 60", "wheel " + std::to_string(content_x_) + " 420 60", "wait 2", "tap " + rest});
+                    continue;
+                }
+                if (scrolls_++ < 16) {
                     // Alternate between the left and right halves of the content (two-pane pages).
                     const int x = (scrolls_ & 1) ? 300 : content_x_;
                     lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(x) + " 420 " + (up ? "3" : "-3"),
@@ -197,9 +203,16 @@ void Script::step(App& app, Platform& plat) {
             auto it = g_prev.find(rest);
             const float vh = ImGui::GetIO().DisplaySize.y;
             if (it == g_prev.end() || it->second.Min.y < 0 || it->second.Max.y > vh * 0.86f) {
-                if (scrolls_++ < 10) {
+                if (scrolls_ == 0 && (it == g_prev.end() || it->second.Min.y < 0)) {
+                    ++scrolls_;
                     lines_.insert(lines_.begin() + static_cast<long>(pc_),
-                                  {"wheel " + std::to_string(content_x_) + " 420 -3", "wait 2", "find " + rest});
+                                  {"wheel 300 420 60", "wheel " + std::to_string(content_x_) + " 420 60", "wait 2", "find " + rest});
+                    continue;
+                }
+                if (scrolls_++ < 16) {
+                    const int x = (scrolls_ & 1) ? 300 : content_x_;
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_),
+                                  {"wheel " + std::to_string(x) + " 420 -3", "wait 2", "find " + rest});
                     continue;
                 }
             }

@@ -256,8 +256,9 @@ void netplay_draw_lobby_extras(App& a, bool host) {
                                 np->lobby_max_spectators ? np->lobby_max_spectators(c) : 0, tr("watching"));
         if (np->local_is_spectator && np->local_is_spectator(c)) chip(tr("You are watching"), theme().accent2);
         if (host && np->host_can_spectate && np->host_can_spectate(c)) ImGui::TextDisabled("%s", tr("You may watch instead of racing."));
+        const int watching = np->lobby_spectator_count ? np->lobby_spectator_count(c) : 0;
         if (np->spectator_slot)
-            for (int i = 0; i < RECOMP_LAUNCHER_NETPLAY_MAX_SPECTATORS; ++i) {
+            for (int i = 0; i < watching && i < RECOMP_LAUNCHER_NETPLAY_MAX_SPECTATORS; ++i) {
                 const int sl = np->spectator_slot(c, i);
                 if (sl < 0) break;
                 ImGui::TextDisabled("  %s %d", tr("Spectator seat"), sl);
