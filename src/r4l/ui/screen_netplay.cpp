@@ -100,6 +100,27 @@ void App::draw_netplay() {
             else np_status.clear();
         }
     }
+    // Sign-in, right here whenever the server needs it, whatever the title's
+    // surface shows (R4 hides the Account section, but a server running with
+    // DISCORD_REQUIRED is unusable without it).
+    if (np->account_state && np->account_login_begin) {
+        const int st = np->account_state(c);
+        const bool signed_in = st == RECOMP_LAUNCHER_ACCOUNT_SIGNED_IN;
+        if (!signed_in && (np_login_required || !S("netplay.account"))) {
+            if (st == RECOMP_LAUNCHER_ACCOUNT_WAITING) {
+                ImGui::TextColored(theme().warn, "%s", tr("Finish signing in in your browser..."));
+            } else if (np_login_required) {
+                if (big_button(tr("Sign in with Discord"), ImVec2(260, 44), true)) np->account_login_begin(c);
+                script_mark("signin");
+                if (st == RECOMP_LAUNCHER_ACCOUNT_FAILED && np->account_error)
+                    ImGui::TextColored(theme().bad, "%s", np->account_error(c));
+            }
+        } else if (signed_in && np_login_required) {
+            np_login_required = false;  // signed in: the server will take us now
+            np_status.clear();
+            if (np->connect && !(np->connected && np->connected(c))) np->connect(c);
+        }
+    }
     if (!np_status.empty()) ImGui::TextColored(theme().warn, "%s", np_status.c_str());
 
     const bool in_lobby = np->in_lobby && np->in_lobby(c);

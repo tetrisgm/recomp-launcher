@@ -244,6 +244,7 @@ void help_marker(const char* text) {
     }
 }
 
+extern bool g_title_body_open;
 void screen_title(const char* t, const char* sub) {
     Skin& sk = skin();
     if (sk.loaded()) {
@@ -265,6 +266,20 @@ void screen_title(const char* t, const char* sub) {
         ImGui::TextWrapped("%s", sub);
         ImGui::PopStyleColor();
     }
+    // Everything below the title scrolls on its own; the title stays pinned.
+    if (!g_title_body_open) {
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+        ImGui::BeginChild("##title_body", ImVec2(0, 0), ImGuiChildFlags_NavFlattened);
+        ImGui::PopStyleColor();
+        g_title_body_open = true;
+    }
+}
+
+bool g_title_body_open = false;
+void screen_body_end() {
+    if (!g_title_body_open) return;
+    ImGui::EndChild();
+    g_title_body_open = false;
 }
 
 std::vector<std::string> list_skins(const std::string& assets_dir) {

@@ -337,6 +337,7 @@ void App::frame() {
     case Screen::System: draw_system(); break;
     default: break;
     }
+    screen_body_end();
     ImGui::EndChild();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();

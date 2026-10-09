@@ -163,6 +163,7 @@ void load_language(const std::string& assets_dir, const std::string& lang);
 std::string patterns_of(const char* const* pats, int n, const char* fallback);
 
 // Widgets
+void screen_body_end();  // closes the scrolling body screen_title opened
 void screen_title(const char* title, const char* sub = nullptr);
 bool section(const char* label);
 bool row_combo(const char* label, int* v, const char* const* items, int count, const char* help = nullptr);
