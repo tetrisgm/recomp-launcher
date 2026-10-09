@@ -13,7 +13,7 @@ once against the real R4 runtime (hidden window, `R4L_SCRIPT`, netplay against a
 local recomp-net lobby server, LAN race launched with lockstep armed on both peers).
 **stand-in only** = exercised on `r4l-fake-host` only; most of these are hidden or
 not wired on R4 (no BIOS choice, precompiled, single disc, no Discord/automatch).
-45 rows verified on R4, 29 stand-in only.
+47 rows verified on R4, 27 stand-in only.
 
 `tests/parity_check.py` (ctest `r4l_parity`) checks that every GameInfo,
 NetplayCallbacks and ModProvider member is used by the launcher, or listed in the
@@ -41,8 +41,8 @@ last section.
 | BIOS | Select, Use OpenBIOS, verify (`bios_verify`) | LI draw_system_controls | Settings › BIOS, Disc setup › BIOS | `bios.select` | stand-in only |
 | BIOS | Prepare BIOS (`bios_prepare_*`) | LI draw_bios_confirm_modal | Settings › BIOS › Prepare | `bios.prepare` | stand-in only |
 | Memory cards | 15-block view (`memcard_inspect`), enable, choose, new/format | LI panel_save_draw, memcard_format.c | Settings › Memory cards (own formatter, `core/memcard.cpp`) | `system.memcards` | verified on R4 |
-| Video | Graphics preset, Custom, Re-detect (`quality_*`) | LI draw_quality_preset_row | Graphics › Preset, plus **Auto** (detected) | `graphics.preset`, `graphics.redetect` | stand-in only |
-| Video | Window size | LI row_window_scale | Graphics › Window width | `graphics.window_size` | stand-in only |
+| Video | Graphics preset, Custom, Re-detect (`quality_*`) | LI draw_quality_preset_row | Graphics › Preset, plus **Auto** (detected) | `graphics.preset`, `graphics.redetect` | verified on R4 (psxrecomp integrate/r4-ultra-defaults scratch build + sample [quality.*] tables) |
+| Video | Window size | LI row_window_scale | Graphics › Window width | `graphics.window_size` | verified on R4 |
 | Video | Renderer (`renderer_labels/ids`) | LI 4004 | Graphics › Renderer (restart-only in-game) | `graphics.renderer` | verified on R4 |
 | Video | Render / present thread, Smooth motion | LI 3853 | Graphics › Pipeline, Smooth motion | `graphics.render_thread`, `graphics.present_thread`, `graphics.frame_generation` | verified on R4 |
 | Video | Internal resolution / supersampling | LI 4040 / 4072 | Graphics › Resolution | `graphics.internal_resolution`, `graphics.supersampling` | verified on R4 (Auto-pinned; supersampling not offered by R4) |
@@ -76,7 +76,7 @@ last section.
 | Netplay | Account (Discord) | LI draw_account_section | Netplay › Account | `netplay.account` | stand-in only |
 | Netplay | Automatch (rulesets, queue, accept) | LI draw_netplay_automatch_modal | Netplay › Quick match | `netplay.automatch` | stand-in only (needs a signed-in account; no R4 ruleset) |
 | Netplay | Match settings (delay, prediction, rollback, relay, TURN, multitap analog, relay status) | LI draw_lobby_match_settings | Lobby › Match settings | `netplay.tuning` | verified on R4 (relay used for the race) |
-| Netplay | Spectators | LI 7859, 8505 | Lobby › Spectators | `netplay.spectators` | verified on R4 (join, gallery, seat as player; watching a race refused by runtime: no relay slot) |
+| Netplay | Spectators | LI 7859, 8505 | Lobby › Spectators | `netplay.spectators` | verified on R4 (hidden in R4 surface; psxrecomp #607 fixes start; observer stalls on relay wire holes) |
 | Netplay | Memory card offer / guest card | LI draw_lobby_memcard_toggle | Lobby › Memory cards | `netplay.memcard` | verified on R4 |
 | Netplay | Lobby mods, downloads, transfers | LI draw_lobby_mods_popup | Lobby › Lobby mods | `netplay.mod_transfer` | stand-in only (R4 netplay is vanilla) |
 | Netplay | Session variant, Link lobby kind | (header; R4 host does not wire) | Lobby › Mode, Link battle toggle | `netplay.variant` | stand-in only |
