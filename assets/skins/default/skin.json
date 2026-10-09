@@ -1,0 +1,39 @@
+// Default skin: a calm, modern dark theme. Lengths are in reference units of
+// a 720-pixel-high screen (see docs/SKIN_SCHEMA.md).
+{
+  "name": "Default",
+  "author": "recomp-launcher",
+  "base_height": 720,
+  "palette": {
+    "bg": "#0b0c14", "surface": "#151724", "surface_hi": "#202336", "line": "#343854",
+    "text": "#eceef8", "text_dim": "#969cba", "accent": "#ff5c36", "accent2": "#785cff",
+    "ok": "#4cd68c", "warn": "#ffc446", "bad": "#ff5660",
+    "rail": "#151724", "footer": "#151724", "content": "#00000000",
+    "control": "#202336", "control_hover": "#2c3050", "focus": "#ff5c36",
+    "nav": "#969cba", "nav_selected": "#eceef8",
+    "play": "#ff5c36", "play_hover": "#ff7550", "play_text": "#ffffff"
+  },
+  "fonts": {
+    "body":    { "ttf": "$skins/../fonts/LatoLatin-Regular.ttf", "size": 17, "color": "#eceef8" },
+    "heading": { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 30, "color": "#eceef8" },
+    "display": { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 38, "color": "#ffffff",
+                 "shadow": { "dx": 0, "dy": 2, "color": "#00000099" } },
+    "logo":    { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 28, "color": "#ffffff" },
+    "nav":     { "ttf": "$skins/../fonts/LatoLatin-Regular.ttf", "size": 17, "color": "#969cba" },
+    "button":  { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 18, "color": "#ffffff" },
+    "label":   { "ttf": "$skins/../fonts/LatoLatin-Regular.ttf", "size": 13, "color": "#969cba", "uppercase": false }
+  },
+  "metrics": { "radius": 10, "control_radius": 8, "nav_item_height": 44, "nav_item_gap": 4, "hero_height": 280 },
+  "layout": {
+    "rail":    { "anchor": "top-left", "x": 0, "y": 0, "w": 230, "h": "fill-46" },
+    "footer":  { "anchor": "bottom-left", "x": 0, "y": 0, "w": "100%", "h": 46 },
+    "content": { "anchor": "top-left", "x": 230, "y": 0, "w": "fill", "h": "fill-46" },
+    "play_button": { "anchor": "bottom-left", "x": 16, "y": 70, "w": 198, "h": 54 },
+    "overlay.panel": { "anchor": "center", "x": 0, "y": 0, "w": "86%", "h": 620 }
+  },
+  "background": { "layers": [ { "type": "solid", "color": "#0b0c14" } ] },
+  "highlight": { "style": "bar", "color": "#ff5c36", "thickness": 4, "radius": 8 },
+  "cursor": {},
+  "transition": { "type": "fade", "ms": 140 },
+  "sounds": {}
+}

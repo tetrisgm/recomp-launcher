@@ -1,0 +1,36 @@
+# Standalone build: tests, the ABI conformance host and the screenshot
+# harness. Games do not use this file; they include recomp_ui.cmake.
+cmake_minimum_required(VERSION 3.20)
+project(recomp_launcher LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/recomp_ui.cmake")
+find_package(SDL3 REQUIRED CONFIG)
+
+include(CTest)
+
+# Core unit tests: no SDL, no GL.
+add_executable(r4l-core-tests
+    tests/test_core.cpp
+    src/r4l/core/binds.cpp src/r4l/core/ini.cpp src/r4l/core/mods.cpp
+    src/r4l/core/quality.cpp src/r4l/core/session.cpp
+    src/r4l/core/json.cpp src/r4l/core/skin_model.cpp)
+target_include_directories(r4l-core-tests PRIVATE src)
+add_test(NAME r4l_core COMMAND r4l-core-tests ${CMAKE_CURRENT_SOURCE_DIR}/assets/skins)
+
+# Fake host shared by the conformance test and the screenshot harness.
+add_executable(r4l-skin-render tests/fake_host.cpp tests/abi_conformance.c)
+target_link_libraries(r4l-skin-render PRIVATE SDL3::SDL3)
+recomp_target_launcher_ui(r4l-skin-render CONSOLE psx)
+add_test(NAME r4l_abi_symbols COMMAND r4l-skin-render --abi-selftest)
+set_tests_properties(r4l_abi_symbols PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+
+# Struct layout identity against a recomp-ui checkout (skipped when absent).
+set(R4L_RECOMP_UI_REFERENCE "" CACHE PATH "recomp-ui checkout to compare the ABI against")
+if(R4L_RECOMP_UI_REFERENCE)
+    add_test(NAME r4l_abi_layout
+        COMMAND ${CMAKE_COMMAND} -E env CC=${CMAKE_C_COMPILER}
+            bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/abi_layout.sh
+            ${CMAKE_CURRENT_SOURCE_DIR}/src ${R4L_RECOMP_UI_REFERENCE}/src)
+endif()
