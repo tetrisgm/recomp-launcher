@@ -87,7 +87,8 @@ Roles: `body` (all ordinary widgets), `heading` (screen titles), `display`
 
 ## layout regions
 
-Launcher: `rail`, `content`, `footer`, `brand`, `play_button`.
+Launcher: `rail`, `content`, `footer`, `brand`, `play_button`. Append
+`@<Screen>` (`rail@Home`) to override a region on one screen.
 Overlay: `overlay.panel` (relative to the viewport), then `overlay.rail`,
 `overlay.content`, `overlay.footer`, `overlay.brand` relative to the panel.
 
@@ -99,6 +100,7 @@ Overlay: `overlay.panel` (relative to the viewport), then `overlay.rail`,
 | `gradient` | `colors`: `[top, bottom]` or `[tl, tr, br, bl]` |
 | `image` | `file`, `fit` (`cover contain stretch tile`), `scroll` `[ux, uy]` units/s, `colors[0]` tint, `opacity` |
 | `stripes` | `color`, `angle` (deg), `spacing`, `width`, `scroll` `[ux, 0]` |
+| `streaks` | `colors` (cycled), `count`, `band` `[top%, bottom%]`, `width`, `scroll` `[ux, 0]` — horizontal light streaks |
 
 All layers take `opacity`, `screens` (`["Home", "Graphics", …]`, `Overlay.<Screen>`; empty = all) and `optional`.
 

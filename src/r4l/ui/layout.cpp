@@ -214,6 +214,11 @@ void App::frame() {
             last_nav_hover = i;
         }
         const ImVec2 a = rp, b(rp.x + w, rp.y + item_h);
+        if (sk.loaded() && sk.model().palette.count("nav_item"))
+            dl->AddRectFilled(a, b, u32(sk.color("nav_item", ImVec4(0, 0, 0, 0))), sk.model().metric("nav_item_radius", 0) * u);
+        if (sk.loaded() && sk.model().palette.count("nav_item_border"))
+            dl->AddRect(a, b, u32(sk.color("nav_item_border", ImVec4(0, 0, 0, 0))), sk.model().metric("nav_item_radius", 0) * u,
+                        0, std::max(1.0f, sk.model().metric("nav_item_border_px", 1) * u));
         if (sel || hov) {
             if (sk.loaded()) sk.draw_highlight(dl, a, b);
             else dl->AddRectFilled(a, b, u32(theme().surface_hi), 8);

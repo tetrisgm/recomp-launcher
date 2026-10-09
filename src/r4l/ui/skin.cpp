@@ -209,12 +209,15 @@ void Skin::begin_frame(float w, float h, const std::string& screen, double time)
 }
 
 bool Skin::has_rect(const std::string& name) const {
-    auto it = m_.layout.find(name);
+    auto it = m_.layout.find(name + "@" + screen_);
+    if (it == m_.layout.end()) it = m_.layout.find(name);
     return it != m_.layout.end() && it->second.present;
 }
 
 Rect Skin::rect(const std::string& name, const Rect& fb, const Rect* parent) const {
-    auto it = m_.layout.find(name);
+    // "<region>@<Screen>" overrides a region on one screen (e.g. rail@Home).
+    auto it = m_.layout.find(name + "@" + screen_);
+    if (it == m_.layout.end() || !it->second.present) it = m_.layout.find(name);
     if (it == m_.layout.end() || !it->second.present) return fb;
     return resolve(it->second, vp_, parent);
 }
@@ -248,6 +251,27 @@ void Skin::draw_background(ImDrawList* dl) const {
             for (float x = -std::fabs(dx) - sp + off; x < vp_.w + std::fabs(dx) + sp; x += sp) {
                 const ImVec2 p[4] = {ImVec2(x, 0), ImVec2(x + wd, 0), ImVec2(x + wd - dx, vp_.h), ImVec2(x - dx, vp_.h)};
                 dl->AddConvexPolyFilled(p, 4, u32c(c, l.opacity));
+            }
+        } else if (l.type == "streaks") {
+            // Horizontal light streaks (racing-game title backdrops): fixed
+            // pseudo-random rows, each a bar fading in from the left and out
+            // to the right, drifting at its own speed. Deterministic per index.
+            uint32_t seed = 2463534242u;
+            auto rnd = [&seed]() {
+                seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+                return (seed & 0xffffff) / 16777216.0f;
+            };
+            for (int i = 0; i < l.count; ++i) {
+                const Color c = l.colors.empty() ? Color{1, 1, 1, 0.5f} : l.colors[i % l.colors.size()];
+                const float y = vp_.h * (l.y_min + (l.y_max - l.y_min) * rnd()) / 100.0f;
+                const float len = vp_.w * (0.25f + 0.9f * rnd());
+                const float th = std::max(1.0f, l.width * s() * (0.3f + rnd()));
+                const float speed = (l.scroll_x ? l.scroll_x : 200) * s() * (0.5f + rnd());
+                const float span = vp_.w + len;
+                const float x = std::fmod(rnd() * span + t * speed, span) - len;
+                const ImU32 mid = u32c(c, l.opacity), clear = u32c(Color{c.r, c.g, c.b, 0});
+                dl->AddRectFilledMultiColor(ImVec2(x, y), ImVec2(x + len * 0.7f, y + th), clear, mid, mid, clear);
+                dl->AddRectFilledMultiColor(ImVec2(x + len * 0.7f, y), ImVec2(x + len, y + th), mid, clear, clear, mid);
             }
         } else if (l.type == "image") {
             auto it = tex_.find(resolve_asset(m_, l.file));

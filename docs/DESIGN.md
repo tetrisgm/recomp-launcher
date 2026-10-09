@@ -9,8 +9,8 @@ Only the C ABI header is shared with recomp-ui, so that struct layouts stay
 identical.
 
 Status: everything in Part 2 is built, and covered by unit, ABI and screenshot
-tests. The in-game overlay (Part 3) is built and rendered in tests, but
-psxrecomp does not call it yet; it needs the hooks listed as P1–P6.
+tests. The in-game overlay (Part 3) runs in R4 on the psxrecomp hook stack
+P1–P6 (PRs #598–#603, open, stacked).
 
 ---
 
@@ -333,9 +333,18 @@ Surveyed at pin `67a21b73`; origin/master `4e758ff9` is unchanged in these areas
 - **Netplay:** `psx_netplay_active()`, `psx_netplay_is_host()`. Rewind is
   already disabled in netplay. The save-state menu has no netplay guard.
 
-### 3.3 Proposed psxrecomp PRs (small, separate, opt-in, default behaviour unchanged)
+### 3.3 psxrecomp PRs (small, stacked, opt-in, default behaviour unchanged)
 
-Not opened. This list is for review.
+Opened as RetroPortingToolKit/psxrecomp #598 (P1) → #599 (P2) → #600 (P3) →
+#601 (P4) → #602 (P5) → #603 (P6), each based on the previous branch. No
+launcher ABI struct changed (the overlay API is this repo's own header), so no
+recomp-ui PR was needed.
+
+Verified in R4 (hidden window, race savestate): Esc pauses (0 frames advance),
+scanlines toggle live and save, Cross rebinds to K, a PGXP option is marked
+restart-only, Esc resumes; 900 post-load frames match a never-opened run on
+cyc/mmio/mc/sp/sc/ws/qc, 0 dispatch misses. Two local LAN peers: menu open on
+the host does not pause (115 frames in 2 s), 0 digest mismatches.
 
 | # | PR | Change | Size |
 |---|---|---|---|
@@ -393,8 +402,7 @@ previous skin and shows the line in the footer.
 ## Part 5 — Gaps
 
 - **Not surfaced in the UI:** automatch, accounts, spectators, mod transfer,
-  seat swaps, host relay, archive install/remove, version selection, mod
-  resources, the toolchain repair flow, the PGO/FMV-timing buttons and
+  host relay, version selection, mod resources, the toolchain repair flow, the PGO/FMV-timing buttons and
   memory-card inspection. The ABI fields are all present, so these are
   UI-only additions.
 - **NeGcon:** there is no ABI field for a NeGcon pad type. The profile maps
@@ -404,6 +412,11 @@ previous skin and shows the line in the footer.
 - **Skin text roles:** only nav, headings, buttons, labels and the hero use
   skin text roles. Ordinary widget text uses the body font and palette, with
   no shadow or outline.
-- **Overlay:** needs P1–P6 before it can run in R4.
+- **Overlay:** mod toggles made in-game are live only for plugins that register
+  an option-changed callback (none in R4 yet) and are not written to
+  mods/state.toml until the next launcher Play. Player device/pad-mode edits
+  apply on the next start.
+- **Layout overrides:** `<region>@<Screen>` rects (the R4 skin centres the
+  Home menu like the game's title screen).
 - **File dialogs:** use SDL3's portal/native dialog. On Game Mode, typing a
   path with the Steam keyboard also works.

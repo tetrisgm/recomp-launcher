@@ -9,10 +9,10 @@
   "palette": {
     "bg": "#050508", "surface": "#0c0c12e6", "surface_hi": "#1b1b26", "line": "#2c2c3c",
     "text": "#f4f4f0", "text_dim": "#8f8f9e", "accent": "#ffb000", "accent2": "#e8333a",
-    "rail": "#00000000", "footer": "#000000cc", "content": "#00000000",
+    "rail": "#00000000", "footer": "#000000", "content": "#00000000",
     "control": "#16161f", "control_hover": "#26263a", "focus": "#ffb000",
-    "nav": "#a8a8b6", "nav_selected": "#101010",
-    "play": "#e8333a", "play_hover": "#ff4a50", "play_text": "#ffffff",
+    "nav": "#f0f0f0", "nav_selected": "#ffffff", "nav_item": "#4a4a4ae6", "nav_item_border": "#d8d8d8",
+    "play": "#4a4a4ae6", "play_hover": "#6a6a6a", "play_text": "#ffffff",
     "hero_fade": "#050508", "overlay_dim": "#000000b0", "overlay_panel": "#07070ce8"
   },
   "fonts": {
@@ -21,41 +21,41 @@
     "display": { "size": 46, "uppercase": true, "italic": true,
                  "outline": { "px": 1, "color": "#000000" }, "shadow": { "dx": 4, "dy": 4, "color": "#ffb000cc" } },
     "logo":    { "size": 44, "italic": true, "color": "#ffb000", "shadow": { "dx": 2, "dy": 2, "color": "#e8333a" } },
-    "nav":     { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 20, "uppercase": true, "italic": true },
+    "nav":     { "ttf": "$skins/../fonts/LatoLatin-Bold.ttf", "size": 19, "uppercase": false, "italic": false, "color": "#ffffff" },
     "button":  { "size": 22, "uppercase": true, "italic": true },
     "label":   { "size": 12, "uppercase": true, "color": "#8f8f9e" }
   },
-  "metrics": { "radius": 2, "control_radius": 2, "nav_item_height": 46, "nav_item_gap": 6,
-               "hero_height": 250, "hero_art": 0, "play_slant": 18 },
+  "metrics": { "radius": 2, "control_radius": 2, "nav_item_height": 34, "nav_item_gap": 4, "nav_item_border_px": 1,
+               "hero_height": 10, "hero_art": 0, "play_slant": 0 },
   "layout": {
     "rail":    { "anchor": "top-left", "x": 0, "y": 0, "w": 270, "h": "fill-40" },
+    "rail@Home": { "anchor": "top-left", "x": "30%", "y": 20, "w": "40%", "h": 400 },
     "content": { "anchor": "top-left", "x": 270, "y": 0, "w": "fill", "h": "fill-40" },
+    "content@Home": { "anchor": "bottom-left", "x": 0, "y": 70, "w": "100%", "h": 230 },
     "footer":  { "anchor": "bottom-left", "x": 0, "y": 0, "w": "100%", "h": 40 },
     "brand":   { "anchor": "top-left", "x": 30, "y": 26, "w": 220, "h": 70 },
-    "play_button": { "anchor": "bottom-left", "x": 24, "y": 64, "w": 222, "h": 56 }
+    "brand@Home": { "anchor": "top-left", "x": 0, "y": 0, "w": 10, "h": 0 },
+    "play_button": { "anchor": "bottom-left", "x": 24, "y": 64, "w": 222, "h": 46 },
+    "play_button@Home": { "anchor": "top", "x": 0, "y": 340, "w": 260, "h": 34 }
   },
   "background": { "layers": [
-    { "type": "gradient", "colors": ["#0a0a12", "#14080a", "#2a0b0e", "#05050a"] },
-    { "type": "stripes", "color": "#ffffff09", "angle": 24, "spacing": 38, "width": 14, "scroll": [22, 0] },
-    { "type": "stripes", "color": "#ffb00010", "angle": 24, "spacing": 240, "width": 3, "scroll": [60, 0] },
+    { "type": "solid", "color": "#000000" },
+    { "type": "streaks", "colors": ["#ff2a1ecc", "#fff2d899", "#c8141499", "#ffe0a080"], "count": 22,
+      "band": [28, 62], "width": 3, "scroll": [260, 0] },
     { "type": "image", "file": "$exe/assets/skins/r4/user/backdrop.png", "fit": "cover", "opacity": 0.35, "optional": true }
   ] },
   "sprites": [
-    { "shape": "slant", "rect": { "anchor": "top-left", "x": -40, "y": 0, "w": 330, "h": "100vh" }, "tint": "#000000b4" },
-    { "shape": "bar", "rect": { "anchor": "top-left", "x": 286, "y": 0, "w": 3, "h": "100vh" }, "tint": "#ffb000", "opacity": 0.8 },
-    { "shape": "slant", "rect": { "anchor": "top-right", "x": -60, "y": 18, "w": 420, "h": 10 }, "tint": "#e8333a" },
-    { "shape": "slant", "rect": { "anchor": "top-right", "x": -90, "y": 32, "w": 300, "h": 4 }, "tint": "#ffb000" },
-    { "shape": "ring", "rect": { "anchor": "bottom-right", "x": 40, "y": 70, "w": 150, "h": 150 }, "tint": "#ffffff18", "spin_hz": 0.15,
-      "screens": ["Home"] }
+    { "shape": "bar", "rect": { "anchor": "bottom", "x": 0, "y": 64, "w": "90%", "h": 1 }, "tint": "#8a8a8a" },
+    { "shape": "bar", "rect": { "anchor": "bottom", "x": 0, "y": 40, "w": "90%", "h": 1 }, "tint": "#8a8a8a" }
   ],
-  "highlight": { "style": "slant", "color": "#ffb000", "pulse_hz": 1.2 },
-  "cursor": { "shape": "chevron", "w": 14, "h": 18, "offset_x": -4, "tint": "#e8333a", "bob_hz": 2, "bob_px": 3 },
+  "highlight": { "style": "fill", "color": "#1c1c1ee6", "radius": 0 },
+  "cursor": { "shape": "chevron", "w": 10, "h": 14, "offset_x": -6, "tint": "#ffffff", "bob_hz": 2, "bob_px": 2 },
   "transition": { "type": "slide-left", "ms": 180 },
   "sounds": { "move": "sfx/move.wav", "confirm": "sfx/confirm.wav", "back": "sfx/back.wav", "volume": 0.5 },
   "text": {
     "brand.title": "R4", "brand.subtitle": "RIDGE RACER TYPE 4",
     "nav.Home": "Race", "nav.Graphics": "Display", "nav.Mods": "Garage", "nav.Controls": "Controls",
-    "nav.Netplay": "Versus", "nav.About": "Credits", "play": "Start", "home.title": "Ridge Racer Type 4",
+    "nav.Netplay": "Versus", "nav.About": "Credits", "play": "*PRESS START BUTTON", "home.title": "Ridge Racer Type 4",
     "home.tagline": "Recompiled natively · SLUS-00797"
   }
 }

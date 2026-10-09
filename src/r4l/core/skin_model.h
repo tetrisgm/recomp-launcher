@@ -57,13 +57,15 @@ struct TextStyle {
 };
 
 struct Layer {
-    std::string type = "solid";  // solid gradient image stripes
+    std::string type = "solid";  // solid gradient image stripes streaks
     std::vector<Color> colors;   // solid: [c]; gradient: [top,bottom] or [tl,tr,br,bl]
     std::string file;
     std::string fit = "cover";   // cover contain stretch tile
     float scroll_x = 0, scroll_y = 0;  // units/second
     float opacity = 1;
     float angle = 0, spacing = 40, width = 8;  // stripes
+    int count = 24;                            // streaks
+    float y_min = 0, y_max = 100;              // streaks band, % of height
     std::vector<std::string> screens;          // empty = all
     bool optional = false;                     // missing runtime asset is not an error
 };

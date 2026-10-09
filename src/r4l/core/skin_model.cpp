@@ -133,6 +133,9 @@ void apply_json(const Json& j, SkinModel* m) {
             L.angle = static_cast<float>(l["angle"].num(0));
             L.spacing = static_cast<float>(l["spacing"].num(40));
             L.width = static_cast<float>(l["width"].num(8));
+            L.count = static_cast<int>(l["count"].num(24));
+            L.y_min = static_cast<float>(l["band"].at(0).num(0));
+            L.y_max = static_cast<float>(l["band"].at(1).num(100));
             L.screens = strs(l["screens"]);
             L.optional = l["optional"].boolean(false);
             m->background.push_back(L);
