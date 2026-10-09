@@ -96,6 +96,7 @@ void App::draw_netplay() {
             ImGui::PopFont();
             if (filled[sl]) {
                 ImGui::TextUnformatted((std::string(m[sl].display_name) + (m[sl].country[0] ? std::string(" [") + m[sl].country + "]" : "")).c_str());
+                script_mark((std::string("seat:") + m[sl].display_name).c_str());
                 netplay_player_menu(*this, m[sl].display_name, m[sl].account);
                 if (m[sl].mod_readiness_valid && (m[sl].mods_missing || m[sl].mod_files_missing))
                     ImGui::TextColored(theme().warn, "%s", m[sl].mod_files_what[0] ? m[sl].mod_files_what : tr("missing mods"));

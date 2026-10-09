@@ -12,6 +12,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace r4l {
 
@@ -261,7 +262,30 @@ void netplay_draw_lobby_extras(App& a, bool host) {
             for (int i = 0; i < watching && i < RECOMP_LAUNCHER_NETPLAY_MAX_SPECTATORS; ++i) {
                 const int sl = np->spectator_slot(c, i);
                 if (sl < 0) break;
+                ImGui::PushID(sl + 9000);
                 ImGui::TextDisabled("  %s %d", tr("Spectator seat"), sl);
+                script_mark((std::string("spectator:") + std::to_string(i)).c_str());
+                if (host && np->move_member) {
+                    // Promotion is a move into the first open player seat.
+                    int open = -1;
+                    const int seats = np->lobby_max_slots ? np->lobby_max_slots(c) : 2;
+                    std::vector<bool> used(seats, false);
+                    for (int k = 0, n = np->member_count ? np->member_count(c) : 0; k < n; ++k) {
+                        RecompLauncherCNetplayMember x{};
+                        if (np->member_get && np->member_get(c, k, &x) && !x.is_spectator && x.slot >= 0 && x.slot < seats)
+                            used[x.slot] = true;
+                    }
+                    for (int k = 0; k < seats; ++k) if (!used[k]) { open = k; break; }
+                    if (open >= 0) {
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton(tr("Seat as player"))) np->move_member(c, sl, open);
+                    }
+                }
+                if (host && np->kick_member) {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(tr("Remove"))) np->kick_member(c, sl);
+                }
+                ImGui::PopID();
             }
     }
     if (a.S("netplay.memcard")) {
