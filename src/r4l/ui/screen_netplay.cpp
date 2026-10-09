@@ -243,9 +243,11 @@ void App::draw_netplay() {
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##ln", "Lobby name", np_lobby_name, sizeof(np_lobby_name));
+    script_mark("field:lobby_name");
     ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##pw", "Password (optional)", np_password, sizeof(np_password),
                              ImGuiInputTextFlags_Password);
+    script_mark("field:password");
     static const char* kSeats[] = {"2 players", "3 players", "4 players"};
     int si = np_seats - 2;
     int max_seats = title->netplay_seats;

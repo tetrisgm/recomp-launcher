@@ -359,7 +359,10 @@ void netplay_draw_modals(App& a) {
         ImGui::TextUnformatted(tr("This lobby has a password."));
         ImGui::SetNextItemWidth(260);
         ImGui::InputText("##pw2", a.np_password, sizeof a.np_password, ImGuiInputTextFlags_Password);
-        if (ImGui::Button(tr("Join")) && np->join) {
+        script_mark("field:join_password");
+        const bool join_pw = ImGui::Button(tr("Join"));
+        script_mark("join:password");
+        if (join_pw && np->join) {
             char bind[96] = {0};
             if (np->join(c, a.np_join_lobby.c_str(), a.np_password, bind) < 0) a.np_status = tr("Join failed");
             ImGui::CloseCurrentPopup();
