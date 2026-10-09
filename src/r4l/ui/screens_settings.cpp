@@ -177,7 +177,12 @@ void App::draw_graphics() {
     }
     if (S("graphics.window_size") && g->has_window_size) {
         lock("graphics.window_size");
-        row_slider(tr("Window width"), &io->window_width, 640, 3840, "%d px");
+        // 0 is the host's "fit the display" (psxrecomp g_video_win_w); show it
+        // as such instead of "0 px", and keep dragged values in the real range.
+        if (row_slider(tr("Window width"), &io->window_width, 0, 3840,
+                       io->window_width <= 0 ? tr("Fit display") : "%d px") &&
+            io->window_width > 0 && io->window_width < 640)
+            io->window_width = 640;
         unlock();
     }
     if (S("graphics.vsync") && g->has_vsync) {
