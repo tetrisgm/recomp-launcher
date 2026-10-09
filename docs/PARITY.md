@@ -11,6 +11,9 @@ of recomp-ui `3fa96c3` (contains the R4 pin `7e884a2`).
 Verified column (2026-10-08): **verified on R4** = the flow was driven at least
 once against the real R4 runtime (hidden window, `R4L_SCRIPT`, netplay against a
 local recomp-net lobby server, LAN race launched with lockstep armed on both peers).
+Cross-machine (2026-10-09, Mac + Windows PC, R4 built with this launcher on both):
+direct IP both directions, lobby-server hosted both directions, and a 200 s race from
+the race savestate; rollback digests matched on every compared tick, 0 dispatch misses.
 **stand-in only** = exercised on `r4l-fake-host` only; most of these are hidden or
 not wired on R4 (no BIOS choice, precompiled, single disc, no Discord/automatch).
 47 rows verified on R4, 27 stand-in only.
