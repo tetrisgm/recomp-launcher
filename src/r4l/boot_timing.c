@@ -1,20 +1,18 @@
 #include "launcher_boot_timing.h"
 
+#include <SDL3/SDL_timer.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
+/* SDL's clock, not timespec_get: MinGW's C runtime lacks the latter. */
 void launcher_boot_timing_mark(const char *phase) {
     static int enabled = -1;
-    static struct timespec t0;
-    struct timespec now;
+    static Uint64 t0;
     if (enabled < 0) {
         const char *e = getenv("PSX_LAUNCHER_BOOT_TIMING");
         enabled = e && *e && *e != '0';
-        timespec_get(&t0, TIME_UTC);
+        t0 = SDL_GetTicksNS();
     }
     if (!enabled || !phase) return;
-    timespec_get(&now, TIME_UTC);
-    fprintf(stderr, "[boot-timing] %8.3f ms %s\n",
-            (now.tv_sec - t0.tv_sec) * 1e3 + (now.tv_nsec - t0.tv_nsec) / 1e6, phase);
+    fprintf(stderr, "[boot-timing] %8.3f ms %s\n", (SDL_GetTicksNS() - t0) / 1e6, phase);
 }

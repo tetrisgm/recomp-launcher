@@ -75,9 +75,11 @@ std::vector<std::string> default_scan_roots(const std::string& exe_dir) {
             while (dirent* e = readdir(d)) {
                 if (e->d_name[0] == '.') continue;
                 const std::string p = join_path(media, e->d_name);
+#if !defined(_WIN32)
                 struct stat lst{};
                 // /Volumes/<boot disk> is a symlink to "/": never walk the system disk.
                 if (lstat(p.c_str(), &lst) == 0 && S_ISLNK(lst.st_mode)) continue;
+#endif
                 r.push_back(p);
                 // /run/media/<user>/<card>: one level more on Linux.
                 if (std::string(media) == "/run/media")
