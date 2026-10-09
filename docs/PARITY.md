@@ -18,6 +18,11 @@ Production lobby (ws://netplay.retcomm.net:8765, 2026-10-09): connects, but the 
 with DISCORD_REQUIRED, so an anonymous client gets `login_required` and cannot host, join or
 list rooms. Online rows are therefore verified against a local recomp-net-server on the LAN
 (Mac + Windows PC), not the public one; the launcher now says so instead of showing the code.
+Over the internet (2026-10-09, Mac on an away network through WireGuard, PC at home), direct
+IP rollback, Modern analog controls, autopiloted full races in both directions: Mac hosting,
+941 digests equal (0 misses); PC hosting, 1002 digests equal (0 misses). Public server with
+one Discord account in two instances: lobby list, password join and seating work; Start did
+not launch.
 A full Link Battle (Mac seat 0, PC seat 1, autopiloted, Helter Skelter) finished on both:
 928 digests compared, 0 mismatches, last common sim 29888 core c9f24a6a.
 **stand-in only** = exercised on `r4l-fake-host` only; most of these are hidden or
