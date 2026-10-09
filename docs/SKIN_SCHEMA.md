@@ -54,7 +54,9 @@ Colours: `"#rgb"`, `"#rrggbb"` or `"#rrggbbaa"`.
 Paths: relative to the skin folder; `$skins/<x>` = sibling of the skins folder's
 entries (`$skins/../fonts/LatoLatin-Bold.ttf` reaches the bundled fonts);
 `$exe/<x>` = next to the game executable (the player's own extracted art or HD
-pack). Add `"optional": true` to a layer or sprite whose file may be absent.
+pack); `$disc/<title>/<x>` = art the title layer extracts from the player's own
+disc on first use (`<exe>/disc-assets/`, a local cache that is never shipped;
+for R4: `logo.png`, `font.png` + `font.fnt`). Add `"optional": true` to a layer or sprite whose file may be absent.
 
 ## palette tokens
 

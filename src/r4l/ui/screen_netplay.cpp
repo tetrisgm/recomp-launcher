@@ -3,9 +3,16 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <string>
 
 namespace r4l {
+
+void netplay_draw_outside(App& a);
+void netplay_draw_lobby_extras(App& a, bool host);
+void netplay_draw_modals(App& a);
+void netplay_load_blocks(App& a);
+void netplay_player_menu(App& a, const char* name, const char* account);
 
 void App::draw_netplay() {
     screen_title("Netplay");
@@ -17,6 +24,22 @@ void App::draw_netplay() {
     }
     void* c = np->ctx;
     RecompLauncherCSettings* io = s.io;
+    static bool once = false;
+    if (!once) {
+        once = true;
+        netplay_load_blocks(*this);
+        // Coming back from a match: reconnect to the room we left.
+        if (g->resume_netplay_room && np->connect && !(np->connected && np->connected(c))) np->connect(c);
+        if (g->resume_netplay_room && g->resume_netplay_endpoint && *g->resume_netplay_endpoint)
+            std::snprintf(np_address, sizeof np_address, "%s", g->resume_netplay_endpoint);
+    }
+    {   // Tell the host when the player enters / leaves netplay (it may change rows).
+        static int last = -1;
+        const int now = (np->in_lobby && np->in_lobby(c)) ? 1 : 0;
+        if (now != last && g->netplay_mode_changed) g->netplay_mode_changed(now);
+        last = now;
+    }
+    netplay_draw_modals(*this);
     auto call_err = [&](const char* what) {
         const char* e = np->last_error ? np->last_error(c) : nullptr;
         np_status = std::string(what) + (e && *e ? ": " + std::string(e) : "");
@@ -26,9 +49,11 @@ void App::draw_netplay() {
     // Identity + connection
     section("You");
     ImGui::SetNextItemWidth(320);
-    if (ImGui::InputTextWithHint("Player name", "Racer", io->netplay_player_name, sizeof(io->netplay_player_name)) &&
-        np->set_player_name)
-        np->set_player_name(c, io->netplay_player_name);
+    if (ImGui::InputTextWithHint(tr("Player name"), "Racer", io->netplay_player_name, sizeof(io->netplay_player_name)) &&
+        np->set_player_name) {
+        if (np->name_rejected && np->name_rejected(c, io->netplay_player_name)) np_status = tr("That name is not allowed.");
+        else np->set_player_name(c, io->netplay_player_name);
+    }
     const bool connected = np->connected && np->connected(c);
     const bool connecting = np->connecting && np->connecting(c);
     ImGui::SameLine(0, 24);
@@ -69,12 +94,17 @@ void App::draw_netplay() {
             ImGui::TextColored(theme().accent, "P%d", sl + 1);
             ImGui::PopFont();
             if (filled[sl]) {
-                ImGui::TextUnformatted(m[sl].display_name);
+                ImGui::TextUnformatted((std::string(m[sl].display_name) + (m[sl].country[0] ? std::string(" [") + m[sl].country + "]" : "")).c_str());
+                netplay_player_menu(*this, m[sl].display_name, m[sl].account);
+                if (m[sl].mod_readiness_valid && (m[sl].mods_missing || m[sl].mod_files_missing))
+                    ImGui::TextColored(theme().warn, "%s", m[sl].mod_files_what[0] ? m[sl].mod_files_what : tr("missing mods"));
                 if (m[sl].is_host) chip("Host", theme().accent2);
                 else chip(m[sl].ready ? "Ready" : "Not ready", m[sl].ready ? theme().ok : theme().text_dim);
                 if (m[sl].latency_ms > 0) ImGui::TextDisabled("%d ms", m[sl].latency_ms);
                 if (host && !m[sl].is_local && np->kick_member && ImGui::SmallButton("Kick")) np->kick_member(c, sl);
-                if (!m[sl].is_local && np->seat_swap_request) {
+                if (host && np->move_member && sl + 1 < seats && !filled[sl + 1] && ImGui::SmallButton(tr("Move down")))
+                    np->move_member(c, sl, sl + 1);
+                if (!m[sl].is_local && np->seat_swap_request && S("netplay.seat_swap")) {
                     if (!host) ImGui::SameLine();
                     if (ImGui::SmallButton("Swap seats") && !np->seat_swap_request(c, sl))
                         call_err("Swap not possible");
@@ -125,15 +155,22 @@ void App::draw_netplay() {
             if (row_toggle("Rollback", &r)) np->rollback_set(c, r);
         }
         // Chat
-        if (np->chat_count && np->chat_get) {
+        netplay_draw_lobby_extras(*this, host);
+        if (S("netplay.chat") && np->chat_count && np->chat_get) {
             section("Chat");
             ImGui::BeginChild("##chat", ImVec2(0, 140), ImGuiChildFlags_AlwaysUseWindowPadding);
             const int cc = np->chat_count(c);
             for (int i = std::max(0, cc - 50); i < cc; ++i) {
                 RecompLauncherCNetplayChatMessage msg{};
                 if (!np->chat_get(c, i, &msg)) continue;
+                bool blocked = false;
+                for (const auto& b : np_blocked) blocked |= b == msg.account;
+                if (blocked) continue;
+                ImGui::PushID(i);
                 if (msg.is_system) ImGui::TextDisabled("%s", msg.text);
                 else ImGui::TextWrapped("%s: %s", msg.from, msg.text);
+                netplay_player_menu(*this, msg.from, msg.account);
+                ImGui::PopID();
             }
             ImGui::EndChild();
             ImGui::SetNextItemWidth(-90);
@@ -163,7 +200,9 @@ void App::draw_netplay() {
     }
 
     // ---------------- Host / Join
-    const float half = (ImGui::GetContentRegionAvail().x - 16) * 0.5f;
+    const bool show_host = S("netplay.host"), show_join = S("netplay.join");
+    const float half = (show_host && show_join) ? (ImGui::GetContentRegionAvail().x - 16) * 0.5f : -1.0f;
+    if (show_host) {
     ImGui::BeginChild("##host", ImVec2(half, 330), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PushFont(theme().bold, theme().body_size * 1.2f);
     ImGui::TextUnformatted("Host a race");
@@ -175,7 +214,9 @@ void App::draw_netplay() {
                              ImGuiInputTextFlags_Password);
     static const char* kSeats[] = {"2 players", "3 players", "4 players"};
     int si = np_seats - 2;
-    if (row_combo("Seats", &si, kSeats, std::min(3, title->netplay_seats - 1))) np_seats = si + 2;
+    int max_seats = title->netplay_seats;
+    if (np->create_max_slots) max_seats = std::min(max_seats, std::max(2, np->create_max_slots(c, np_lan_only ? 1 : 0)));
+    if (row_combo(tr("Seats"), &si, kSeats, std::max(1, std::min(3, max_seats - 1)))) np_seats = si + 2;
     int lan = np_lan_only ? 1 : 0;
     if (row_toggle("LAN only", &lan)) np_lan_only = lan != 0;
     ImGui::BeginDisabled(!s.media_ready());
@@ -184,10 +225,14 @@ void App::draw_netplay() {
         if (np->set_player_name) np->set_player_name(c, io->netplay_player_name);
         const int rc = np->create(c, np_lobby_name, endpoint, np_password, io, np_lan_only ? 1 : 0, np_seats);
         if (rc <= 0) call_err(rc == -4 ? "Port is busy" : "Could not host");
+        else if (np->create_default_rollback && np->rollback_set)
+            np->rollback_set(c, np->create_default_rollback(c, np_seats));
     }
     ImGui::EndDisabled();
     ImGui::EndChild();
-    ImGui::SameLine(0, 16);
+    }
+    if (show_host && show_join) ImGui::SameLine(0, 16);
+    if (show_join) {
     ImGui::BeginChild("##join", ImVec2(half, 330), ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PushFont(theme().bold, theme().body_size * 1.2f);
     ImGui::TextUnformatted("Join a race");
@@ -217,10 +262,23 @@ void App::draw_netplay() {
         }
     }
     ImGui::EndChild();
-
-    if (connected && np->list_count && np->list_get) {
-        section("Open lobbies");
-        if (ImGui::Button("Refresh") && np->request_list) np->request_list(c);
+    }
+    netplay_draw_outside(*this);
+    if (S("netplay.browse") && connected && np->list_count && np->list_get) {
+        section(tr("Open lobbies"));
+        if (np->list_scope_set) {
+            static const char* kScope[] = {"All", "LAN", "Online"};
+            for (int k = 0; k < 3; ++k) {
+                if (k) ImGui::SameLine();
+                if (ImGui::RadioButton(tr(kScope[k]), np_list_scope == k)) {
+                    np_list_scope = k;
+                    np->list_scope_set(c, k);
+                    if (np->request_list) np->request_list(c);
+                }
+            }
+            ImGui::SameLine(0, 20);
+        }
+        if (ImGui::Button(tr("Refresh")) && np->request_list) np->request_list(c);
         const int n = np->list_count(c);
         if (!n) ImGui::TextDisabled("No lobbies right now. Host one!");
         for (int i = 0; i < n; ++i) {
@@ -231,8 +289,13 @@ void App::draw_netplay() {
             std::snprintf(row, sizeof(row), "%s   %d/%d   %s%d ms", l.name, l.player_count, l.max_slots,
                           l.has_password ? "locked  " : "", l.latency_ms);
             if (ImGui::Selectable(row, false, 0, ImVec2(0, theme().row_h)) && np->join) {
-                char bind[96] = {0};
-                if (np->join(c, l.lobby_id, np_password, bind) <= 0) call_err("Join failed");
+                if (l.has_password) {
+                    np_join_lobby = l.lobby_id;
+                    np_show_password = true;
+                } else {
+                    char bind[96] = {0};
+                    if (np->join(c, l.lobby_id, np_password, bind) <= 0) call_err("Join failed");
+                }
             }
             ImGui::PopID();
         }

@@ -277,6 +277,8 @@ std::string resolve_asset(const SkinModel& m, const std::string& p) {
     if (p.empty()) return p;
     if (p.rfind("$exe/", 0) == 0) return join_path(current_exe_dir(), p.substr(5));
     if (p.rfind("$skins/", 0) == 0) return join_path(dir_of(m.dir), p.substr(7));
+    // Art the title extracted from the player's own disc (never shipped).
+    if (p.rfind("$disc/", 0) == 0) return join_path(join_path(current_exe_dir(), "disc-assets"), p.substr(6));
     if (p[0] == '/') return p;
     return join_path(m.dir, p);
 }

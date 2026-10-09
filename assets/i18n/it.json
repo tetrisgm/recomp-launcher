@@ -1,0 +1,17 @@
+// Italian UI strings. Keys are the English text; missing keys stay English.
+{
+  "Play": "Gioca", "Graphics": "Grafica", "Controls": "Comandi", "Mods": "Mod", "Netplay": "Gioco in rete",
+  "Settings": "Impostazioni", "About": "Informazioni", "Disc setup": "Configura disco",
+  "PLAY": "GIOCA", "RESUME": "RIPRENDI", "SET UP DISC": "CONFIGURA DISCO",
+  "Preset": "Preimpostazione", "Auto": "Automatico", "Low": "Bassa", "Medium": "Media", "High": "Alta", "Ultra": "Ultra",
+  "Custom": "Personalizzata", "Re-detect": "Rileva di nuovo", "Smooth motion": "Movimento fluido",
+  "Screen": "Schermo", "Windowed": "Finestra", "Fullscreen": "Schermo intero", "Exclusive fullscreen": "Schermo intero esclusivo",
+  "Renderer": "Motore grafico", "Internal resolution": "Risoluzione interna", "Dynamic resolution": "Risoluzione dinamica",
+  "Control scheme": "Schema di controllo", "Modern": "Moderno", "Classic": "Classico", "Players": "Giocatori",
+  "Input device": "Dispositivo", "Bindings": "Assegnazioni", "Map all keys": "Assegna tutti i tasti",
+  "Reset bindings": "Ripristina assegnazioni", "Volume": "Volume", "Audio": "Audio", "System": "Sistema",
+  "Memory cards": "Memory card", "Restore defaults": "Ripristina predefiniti", "Disc": "Disco", "Change disc": "Cambia disco",
+  "Host a race": "Ospita una gara", "Join a race": "Partecipa a una gara", "Open lobbies": "Lobby aperte",
+  "Install mod...": "Installa mod...", "Turn all off": "Disattiva tutto", "Applies after restart": "Al prossimo avvio",
+  "Credits and notices": "Riconoscimenti e note", "Version": "Versione", "Cancel": "Annulla"
+}

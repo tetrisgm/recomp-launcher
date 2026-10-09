@@ -7,6 +7,9 @@
 // psxrecomp game adds titles/<id>/ and selects it with -DR4L_TITLE=<id>.
 #pragma once
 
+#include "r4l/core/surface.h"
+
+#include <cstddef>
 #include <cstdint>
 
 namespace r4l {
@@ -58,6 +61,15 @@ struct TitleLayer {
     const TitleNotice* notices;  // About screen
     int notice_count;
     const char* about;           // paragraph on About
+
+    // What the launcher shows, hides, locks or automates (docs/SUPPORTED.md).
+    const SurfaceRule* surface;
+    int surface_count;
+
+    // Disc-sourced skin assets: extract art from the player's own disc into
+    // out_dir (a local cache, never shipped). Skins reference the results as
+    // "$disc/<id>/<file>". Returns false and fills err on failure.
+    bool (*extract_disc_assets)(const char* disc_path, const char* out_dir, char* err, size_t err_cap);
 
     // Optional: draw a title-specific hero banner into the Home card (UI
     // layer supplies an ImDrawList via void* to keep this header ImGui-free).

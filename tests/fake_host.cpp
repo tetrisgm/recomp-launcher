@@ -149,6 +149,31 @@ int n_swap_in(void*, char* who, size_t cap, int* from) {
     return lobby() ? 1 : 0;
 }
 int n_swap_resp(void*, int) { return 1; }
+int n_acc_avail(void*) { return 1; }
+int n_acc_state(void*) { return RECOMP_LAUNCHER_ACCOUNT_GUEST; }
+int n_am_avail(void*) { return 1; }
+int n_am_state(void*) { return RECOMP_LAUNCHER_AUTOMATCH_IDLE; }
+int n_am_count(void*) { return 2; }
+int n_am_get(void*, int i, RecompLauncherCNetplayRuleset* r) {
+    *r = RecompLauncherCNetplayRuleset{};
+    std::snprintf(r->id, sizeof r->id, "rs%d", i);
+    std::snprintf(r->label, sizeof r->label, "%s", i ? "4-player Grand Prix" : "1v1 Time Trial");
+    std::snprintf(r->caps_summary, sizeof r->caps_summary, "%s", i ? "rollback, 4 seats" : "rollback, 2 seats");
+    return 1;
+}
+int n_online_count(void*) { return 2; }
+int n_online_get(void*, int i, RecompLauncherCNetplayOnlinePlayer* p) {
+    *p = RecompLauncherCNetplayOnlinePlayer{};
+    std::snprintf(p->display_name, sizeof p->display_name, "%s", i ? "Hitomi" : "Reiko");
+    std::snprintf(p->country, sizeof p->country, "%s", i ? "JP" : "US");
+    std::snprintf(p->account, sizeof p->account, "acct%d", i);
+    p->in_lobby = i;
+    return 1;
+}
+int n_pred_get(void*) { return 2; }
+int n_pred_set(void*, int) { return 0; }
+int n_bool_get(void*) { return 0; }
+int n_bool_set(void*, int) { return 0; }
 int n_addr(void*, int i, RecompLauncherCNetplayLocalAddress* a) {
     if (i) return 0;
     std::snprintf(a->address, sizeof a->address, "192.168.1.20:7777");
@@ -193,6 +218,12 @@ void fill(RecompLauncherCGameInfo* gi, RecompLauncherCModProvider* mp, RecompLau
     gi->quality_summary = "Apple M2 Pro · 12 threads · 32 GB";
     gi->quality_reason = "Apple silicon with 16+ GB: High";
     gi->quality_apply = q_apply; gi->quality_redetect = q_redetect;
+    gi->memcard_inspect = [](const char*, RecompLauncherCMemcard* m) {
+        *m = RecompLauncherCMemcard{}; m->valid = 1; m->used_blocks = 4;
+        for (int i = 0; i < 4; ++i) m->block_used[i] = 1;
+        return 1;
+    };
+    gi->has_player_name = 1;
     *mp = RecompLauncherCModProvider{};
     mp->feature_count = m_fcount; mp->feature_get = m_fget; mp->feature_option_get = m_optget;
     mp->feature_choice_get = m_chget; mp->feature_enable = m_enable; mp->feature_set_option = m_setopt;
@@ -203,6 +234,13 @@ void fill(RecompLauncherCGameInfo* gi, RecompLauncherCModProvider* mp, RecompLau
     np->connected = n_connected; np->pump = n_pump; np->in_lobby = n_in_lobby; np->is_host = n_is_host;
     np->lobby_max_slots = n_max; np->member_count = n_mcount; np->member_get = n_mget;
     np->all_ready = n_all_ready; np->list_count = n_lcount; np->list_get = n_lget;
+    np->account_available = n_acc_avail; np->account_state = n_acc_state;
+    np->automatch_available = n_am_avail; np->automatch_state = n_am_state;
+    np->automatch_ruleset_count = n_am_count; np->automatch_ruleset_get = n_am_get;
+    np->online_count = n_online_count; np->online_get = n_online_get;
+    np->input_prediction_get = n_pred_get; np->input_prediction_set = n_pred_set;
+    np->allow_spectators_get = n_bool_get; np->allow_spectators_set = n_bool_set;
+    np->multitap_analog_get = n_bool_get; np->multitap_analog_set = n_bool_set;
     np->seat_swap_request = n_swap_req; np->seat_swap_incoming = n_swap_in; np->seat_swap_respond = n_swap_resp;
     np->chat_count = n_chat_count; np->chat_get = n_chat_get; np->local_address_get = n_addr;
     gi->netplay_supported = 1; gi->netplay = np;
@@ -221,6 +259,8 @@ int main(int argc, char** argv) {
     s.assist_pad_bind[0] = RECOMP_LAUNCHER_PAD_BUTTON_COMBO((1 << 4) | (1 << 8));
     s.quality_preset = 3; s.quality_base = 3; q_apply(3, &s);
     std::snprintf(s.netplay_player_name, sizeof s.netplay_player_name, "Shokunin");
+    s.memcard_enabled[0] = 1; s.volume = 80; s.audio_freq = 44100;
+    std::snprintf(s.memcard_path[0], sizeof s.memcard_path[0], "memcards/card1.mcd");
     char out[1024];
 
     if (argc > 1 && !std::strcmp(argv[1], "--abi-selftest")) {
@@ -237,6 +277,7 @@ int main(int argc, char** argv) {
         setenv("R4L_HIDDEN", "1", 1);
         setenv("R4L_NO_SOUND", "1", 1);
         setenv("R4L_NO_TRANSITION", "1", 1);
+        setenv("R4L_NO_AUTOSCAN", "1", 1);  // never scan the machine for screenshots
         const std::string dir = argv[2];
         std::string assets = "assets", only;
         int w = 1280, h = 800;
@@ -255,6 +296,7 @@ int main(int argc, char** argv) {
             {"Mods", "mods", false, true, false},        {"Controls", "controls", false, true, false},
             {"Netplay", "netplay", false, true, false},  {"Netplay", "netplay-lobby", true, true, false},
             {"Disc setup", "setup", false, false, false}, {"About", "about", false, true, false},
+            {"Settings", "settings", false, true, false},
             {"Graphics", "overlay", false, true, true},  {"Controls", "overlay-netplay", true, true, true},
         };
         int fail = 0;
@@ -274,7 +316,8 @@ int main(int argc, char** argv) {
                 rc = r4l_render_overlay_png(png.c_str(), w, h, &gi, &o, &host, assets.c_str(), sh.screen);
             } else {
                 setenv("R4L_SCREENSHOT", png.c_str(), 1);
-                const char* disc = sh.disc ? "/Games/PS1/R4 - Ridge Racer Type 4 (USA).cue" : "";
+                const char* real = std::getenv("R4L_TEST_DISC");  // a local disc enables disc-sourced art
+                const char* disc = sh.disc ? (real ? real : "/Games/PS1/R4 - Ridge Racer Type 4 (USA).cue") : "";
                 RecompLauncherCSettings copy = s;
                 rc = recomp_launcher_run_window("R4", &copy, &gi, assets.c_str(), disc, out, sizeof out);
                 unsetenv("R4L_SCREENSHOT");

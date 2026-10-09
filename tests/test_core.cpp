@@ -2,6 +2,10 @@
 #include "r4l/core/binds.h"
 #include "r4l/core/ini.h"
 #include "r4l/core/mods.h"
+#include "r4l/core/surface.h"
+#include "r4l/core/discscan.h"
+#include "r4l/core/discfs.h"
+#include "r4l/core/memcard.h"
 #include "r4l/core/quality.h"
 #include "r4l/core/session.h"
 #include "r4l/core/skin_model.h"
@@ -32,7 +36,7 @@ static std::string tmpdir() {
     return mkdtemp(t);
 }
 static std::string slurp(const std::string& p) {
-    std::ifstream f(p);
+    std::ifstream f(p, std::ios::binary);
     std::stringstream s;
     s << f.rdbuf();
     return s.str();
@@ -268,6 +272,94 @@ static void test_mod_archive(const std::string& dir) {
     CHECK(!zip_has_manifest(dir + "/bad.psxmod", &err) && err == "The archive has no manifest.toml");
 }
 
+static void test_surface() {
+    // Default rule: essentials shown, advanced hidden.
+    Surface none;
+    CHECK(none.shown("graphics.preset") && none.shown("disc.setup") && none.shown("netplay.host"));
+    CHECK(!none.shown("graphics.renderer") && !none.shown("netplay.automatch") && !none.shown("audio.frequency"));
+    CHECK(none.vis("graphics.renderer") == Vis::Hidden && none.vis("controls.bindings") == Vis::Shown);
+    // Every catalog key resolves; unknown keys are reported, not crashed on.
+    for (const auto& c : capabilities()) CHECK(none.vis(c.key) != Vis::Default);
+    static const SurfaceRule rules[] = {
+        {"graphics.renderer", Vis::Shown, nullptr},
+        {"graphics.preset", Vis::Locked, "3"},
+        {"graphics.dynamic_resolution", Vis::Auto, "1"},
+        {"graphics.vsync", Vis::Auto, "auto"},
+        {"netplay.host", Vis::Hidden, nullptr},
+        {"no.such.key", Vis::Shown, nullptr},
+    };
+    Surface t;
+    t.bind(rules, 6);
+    CHECK(t.shown("graphics.renderer") && t.locked("graphics.preset") && t.shown("graphics.preset"));
+    CHECK(t.automatic("graphics.dynamic_resolution") && !t.shown("graphics.dynamic_resolution"));
+    CHECK(!t.shown("netplay.host") && t.any_shown("netplay.") && !t.any_shown("audio.freq"));
+    CHECK(t.unknown_keys().size() == 1 && t.unknown_keys()[0] == "no.such.key");
+    RecompLauncherCSettings io{};
+    io.vsync = 2;
+    CHECK(t.apply(&io) == 2);  // preset + dynres; "auto" leaves vsync alone
+    CHECK(io.quality_preset == 3 && io.dynamic_resolution == 1 && io.vsync == 2);
+    t.set_show_all(true);
+    CHECK(t.shown("netplay.host") && !t.locked("graphics.preset"));
+}
+
+static void test_discscan(const std::string& dir) {
+    const std::string root = dir + "/scan";
+    mkdir(root.c_str(), 0755);
+    mkdir((root + "/a").c_str(), 0755);
+    mkdir((root + "/a/b").c_str(), 0755);
+    spit(root + "/a/b/R4.cue", "FILE \"R4.bin\" BINARY\n");
+    spit(root + "/a/other.CHD", "x");
+    spit(root + "/a/readme.txt", "x");
+    auto found = scan_disc_images({root}, 4);
+    CHECK(found.size() == 2);
+    CHECK(scan_disc_images({root}, 1).size() == 1);  // depth limit
+    CHECK(find_disc({root}, [](const std::string& p) { return p.find("R4.cue") != std::string::npos; }) ==
+          root + "/a/b/R4.cue");
+    CHECK(find_disc({root}, [](const std::string&) { return false; }).empty());
+}
+
+static void test_tim_and_font(const std::string& dir) {
+    // A 4-bit TIM, 16x2 pixels, CLUT {transparent, white}: two glyph columns.
+    std::vector<uint8_t> d;
+    auto le32 = [&](uint32_t v) { for (int i = 0; i < 4; ++i) d.push_back(static_cast<uint8_t>(v >> (8 * i))); };
+    auto le16 = [&](uint16_t v) { d.push_back(v & 255); d.push_back(v >> 8); };
+    le32(0x10); le32(0x8);
+    le32(12 + 16 * 2); le16(0); le16(0); le16(16); le16(1);
+    le16(0); le16(0x7fff); for (int i = 2; i < 16; ++i) le16(0);
+    le32(12 + 4 * 2 * 2); le16(0); le16(0); le16(4); le16(2);  // 4 halfwords wide = 16 px
+    // row: px 0-1 white, 2-4 clear, 5-6 white, rest clear
+    const uint8_t row[8] = {0x11, 0x00, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00};
+    for (int r = 0; r < 2; ++r) d.insert(d.end(), row, row + 8);
+    Rgba img;
+    CHECK(decode_tim(d, 0, &img) && img.w == 16 && img.h == 2);
+    CHECK(img.px[3] == 255 && img.px[2 * 4 + 3] == 0 && img.px[5 * 4] == 248);
+    CHECK(!decode_tim(d, 4, &img));
+    Rgba c = crop(img, 5, 0, 2, 2);
+    CHECK(c.w == 2 && c.px[3] == 255);
+    tint(&c, 10, 20, 30);
+    CHECK(c.px[0] == 10 && c.px[2] == 30 && c.px[3] == 255);
+    CHECK(scale_nearest(c, 3).w == 6);
+    std::string err;
+    CHECK(!write_bitmap_font(img, {{{0, 2}, "AB"}}, dir, "f", 2, &err));  // under 10 glyphs: refused
+    Rgba wide;
+    wide.w = 60; wide.h = 4; wide.px.assign(60 * 4 * 4, 0);
+    for (int g = 0; g < 12; ++g) for (int y = 0; y < 4; ++y) wide.px[(y * 60 + g * 5) * 4 + 3] = 255;
+    CHECK(write_bitmap_font(wide, {{{0, 4}, "0123456789AB"}}, dir, "f", 4, &err));
+    const std::string fnt = slurp(dir + "/f.fnt");
+    CHECK(fnt.find("char id=48 x=0 ") != std::string::npos && fnt.find("char id=66 x=55 ") != std::string::npos);
+}
+
+static void test_memcard(const std::string& dir) {
+    const std::string p = dir + "/card.mcd";
+    CHECK(format_memcard(p));
+    const std::string m = slurp(p);
+    CHECK(m.size() == 131072 && m[0] == 'M' && m[1] == 'C');
+    unsigned char x = 0;
+    for (int i = 0; i < 127; ++i) x ^= static_cast<unsigned char>(m[128 + i]);
+    CHECK(static_cast<unsigned char>(m[128]) == 0xA0 && x == static_cast<unsigned char>(m[255]));
+    CHECK(m.compare(63 * 128, 128, m, 0, 128) == 0);
+}
+
 int main(int argc, char** argv) {
     const std::string dir = tmpdir();
     test_ini_preserves_foreign_lines();
@@ -278,6 +370,10 @@ int main(int argc, char** argv) {
     test_quality();
     test_handoff(dir);
     test_mod_archive(dir);
+    test_surface();
+    test_discscan(dir);
+    test_tim_and_font(dir);
+    test_memcard(dir);
     test_json_and_skin(argc > 1 ? argv[1] : "assets/skins", dir);
     std::printf("r4l-core-tests: %s (%d failures)\n", g_fail ? "FAIL" : "ok", g_fail);
     return g_fail ? 1 : 0;

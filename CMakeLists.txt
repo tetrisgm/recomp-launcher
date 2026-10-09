@@ -15,7 +15,8 @@ add_executable(r4l-core-tests
     tests/test_core.cpp
     src/r4l/core/binds.cpp src/r4l/core/ini.cpp src/r4l/core/mods.cpp
     src/r4l/core/quality.cpp src/r4l/core/session.cpp
-    src/r4l/core/json.cpp src/r4l/core/skin_model.cpp)
+    src/r4l/core/json.cpp src/r4l/core/skin_model.cpp src/r4l/core/surface.cpp
+    src/r4l/core/discscan.cpp src/r4l/core/discfs.cpp src/r4l/core/png.cpp src/r4l/core/memcard.cpp)
 target_include_directories(r4l-core-tests PRIVATE src)
 add_test(NAME r4l_core COMMAND r4l-core-tests ${CMAKE_CURRENT_SOURCE_DIR}/assets/skins)
 
@@ -33,4 +34,16 @@ if(R4L_RECOMP_UI_REFERENCE)
         COMMAND ${CMAKE_COMMAND} -E env CC=${CMAKE_C_COMPILER}
             bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/abi_layout.sh
             ${CMAKE_CURRENT_SOURCE_DIR}/src ${R4L_RECOMP_UI_REFERENCE}/src)
+endif()
+
+# Parity: every launcher ABI member is used or documented as N/A (docs/PARITY.md),
+# and docs/SUPPORTED.md matches the capability catalog.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+    add_test(NAME r4l_parity COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/parity_check.py ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME r4l_supported_doc COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_supported.py --check)
+    # Every screen renders with every capability shown (hidden window, no audio).
+    add_test(NAME r4l_render_all COMMAND r4l-skin-render --shots ${CMAKE_CURRENT_BINARY_DIR}/test-shots
+             --assets ${CMAKE_CURRENT_SOURCE_DIR}/assets --skin default --size 1280x800)
+    set_tests_properties(r4l_render_all PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;R4L_SURFACE=all")
 endif()

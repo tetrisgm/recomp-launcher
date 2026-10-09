@@ -15,6 +15,7 @@ set(R4L_VERSION "0.1.0")
 option(RECOMP_UI_ENABLE_MODS "Show the Mods screen" ON)
 option(RECOMP_UI_SDL3 "SDL3 platform backend (the only one this launcher has)" ON)
 set(R4L_TITLE "r4" CACHE STRING "Title layer under titles/<id>/")
+set(R4L_UI_LANGUAGE "" CACHE STRING "Launcher UI language (assets/i18n/<code>.json), empty = English")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/recomp_gl.cmake")
 
 set(R4L_IMGUI "${R4L_ROOT}/third_party/imgui")
@@ -28,6 +29,11 @@ set(R4L_SOURCES
     ${R4L_ROOT}/src/r4l/boot_timing.c
     ${R4L_ROOT}/src/r4l/overlay_entry.cpp
     ${R4L_ROOT}/src/r4l/core/binds.cpp
+    ${R4L_ROOT}/src/r4l/core/discfs.cpp
+    ${R4L_ROOT}/src/r4l/core/discscan.cpp
+    ${R4L_ROOT}/src/r4l/core/png.cpp
+    ${R4L_ROOT}/src/r4l/core/memcard.cpp
+    ${R4L_ROOT}/src/r4l/core/surface.cpp
     ${R4L_ROOT}/src/r4l/core/json.cpp
     ${R4L_ROOT}/src/r4l/core/skin_model.cpp
     ${R4L_ROOT}/src/r4l/core/ini.cpp
@@ -39,6 +45,8 @@ set(R4L_SOURCES
     ${R4L_ROOT}/src/r4l/ui/skin.cpp
     ${R4L_ROOT}/src/r4l/ui/platform.cpp
     ${R4L_ROOT}/src/r4l/ui/screen_netplay.cpp
+    ${R4L_ROOT}/src/r4l/ui/screen_netplay_more.cpp
+    ${R4L_ROOT}/src/r4l/ui/screens_system.cpp
     ${R4L_ROOT}/src/r4l/ui/screens_settings.cpp
     ${R4L_ROOT}/titles/${R4L_TITLE}/title_${R4L_TITLE}.cpp
     ${R4L_IMGUI}/imgui.cpp
@@ -65,7 +73,8 @@ function(recomp_target_launcher_ui TGT)
         RECOMP_LAUNCHER
         RECOMP_UI_ENABLE_MODS=$<BOOL:${RECOMP_UI_ENABLE_MODS}>
         SDL_MAIN_HANDLED
-        R4L_VERSION="${R4L_VERSION}")
+        R4L_VERSION="${R4L_VERSION}"
+        R4L_DEFAULT_LANGUAGE="${R4L_UI_LANGUAGE}")
     find_package(Threads REQUIRED)
     target_link_libraries(${TGT} PRIVATE Threads::Threads)
     if(NOT WIN32)
@@ -89,6 +98,8 @@ function(recomp_stage_launcher_assets TGT)
             "$<TARGET_FILE_DIR:${TGT}>/assets/fonts/"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${R4L_ROOT}/assets/skins"
             "$<TARGET_FILE_DIR:${TGT}>/assets/skins"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${R4L_ROOT}/assets/i18n"
+            "$<TARGET_FILE_DIR:${TGT}>/assets/i18n"
         COMMENT "Staging launcher fonts and skins" VERBATIM)
     if(RSA_BOXART AND EXISTS "${RSA_BOXART}")
         set(_dest boxart.tga)

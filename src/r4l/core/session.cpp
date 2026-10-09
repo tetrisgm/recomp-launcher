@@ -71,6 +71,8 @@ void Session::begin(RecompLauncherCSettings* io_, const RecompLauncherCGameInfo*
             if (game->discs[i].path) discs[i].path = game->discs[i].path;
     }
     if (initial_rom && *initial_rom && discs[0].path.empty()) discs[0].path = initial_rom;
+    if (discs[0].path.empty() && game && game->rom_cache_path && *game->rom_cache_path)
+        discs[0].path = read_rom_cache(game->rom_cache_path);
     if (discs[0].path.empty()) {
         const auto cfg = read_disc_cfg(exe_dir);
         for (size_t i = 0; i < cfg.size() && i < discs.size(); ++i) discs[i].path = cfg[i];
@@ -159,6 +161,13 @@ bool write_sidecars(const std::vector<std::string>& dirs, const std::vector<std:
     return ok;
 }
 
+std::string read_rom_cache(const std::string& path) {
+    std::ifstream f(path);
+    std::string line;
+    std::getline(f, line);
+    return trim(line);
+}
+
 std::vector<std::string> read_disc_cfg(const std::string& dir) {
     std::vector<std::string> out;
     std::ifstream f(join_path(dir, "disc.cfg"));
@@ -176,6 +185,8 @@ bool Session::persist_media(std::string* err) {
         std::vector<std::string> dirs{exe_dir};
         if (!relaunch_exe.empty() && dir_of(relaunch_exe) != exe_dir) dirs.push_back(dir_of(relaunch_exe));
         if (!write_sidecars(dirs, paths, bios_path) && err) *err = "Could not write disc.cfg";
+        if (game && game->rom_cache_path && *game->rom_cache_path && !paths.empty())
+            std::ofstream(game->rom_cache_path, std::ios::trunc) << paths[0] << "\n";
     }
     if (!game) return true;
     if (game->num_discs > 1 && game->persist_setup_discs) {

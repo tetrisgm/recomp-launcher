@@ -37,6 +37,9 @@ public:
         return m_.metric(k + "@" + screen_, m_.metric(k, fb)) * vp_.scale();  // "key@Screen" wins
     }
     ImVec4 color(const std::string& k, const ImVec4& fb) const;
+    bool has_color(const std::string& k) const {
+        return m_.palette.count(k + "@" + screen_) || m_.palette.count(k);
+    }
     std::string label(const std::string& k, const std::string& fb) const { return m_.label(k, fb); }
 
     void draw_background(ImDrawList* dl) const;
@@ -54,6 +57,8 @@ public:
     float transition_alpha() const;
     ImVec2 transition_offset() const;
     void play(const std::string& sound) const;
+    // Any image file (absolute or skin-relative), cached with the skin.
+    ImTextureID image(const std::string& path, int* w, int* h) { return static_cast<ImTextureID>(texture(path, w, h, true)); }
 
 private:
     unsigned texture(const std::string& path, int* w = nullptr, int* h = nullptr, bool optional = false);

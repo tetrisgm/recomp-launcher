@@ -73,6 +73,7 @@ struct Session {
 bool write_sidecars(const std::vector<std::string>& dirs, const std::vector<std::string>& discs,
                     const std::string& bios);
 std::vector<std::string> read_disc_cfg(const std::string& dir);
+std::string read_rom_cache(const std::string& path);  // GameInfo.rom_cache_path
 
 // launcher-window.ini (logical_width/height).
 bool load_window_size(const std::string& path, int* w, int* h);

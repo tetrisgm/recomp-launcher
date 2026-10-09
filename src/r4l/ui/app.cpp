@@ -35,6 +35,7 @@ const char* screen_name(Screen s) {
     case Screen::Netplay: return "Netplay";
     case Screen::Setup: return "Disc setup";
     case Screen::About: return "About";
+    case Screen::System: return "Settings";
     default: return "";
     }
 }
@@ -139,7 +140,10 @@ bool row_combo(const char* label, int* v, const char* const* items, int count, c
     row_begin(label, help);
     int cur = (*v >= 0 && *v < count) ? *v : 0;
     bool changed = false;
-    if (ImGui::BeginCombo("##c", count ? items[cur] : "")) {
+    const bool ct = skin().loaded() && skin().has_color("control_text");
+    if (ct) ImGui::PushStyleColor(ImGuiCol_Text, skin().color("control_text", g_theme.text));
+    const bool open = ImGui::BeginCombo("##c", count ? items[cur] : "");
+    if (open) {
         for (int i = 0; i < count; ++i) {
             const bool sel = i == cur;
             if (ImGui::Selectable(items[i], sel)) {
@@ -150,6 +154,7 @@ bool row_combo(const char* label, int* v, const char* const* items, int count, c
         }
         ImGui::EndCombo();
     }
+    if (ct) ImGui::PopStyleColor();
     ImGui::PopID();
     return changed;
 }
@@ -203,9 +208,12 @@ bool big_button(const char* label, ImVec2 size, bool primary) {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, g_theme.accent2);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
     }
+    const bool ct = !primary && skin().loaded() && skin().has_color("control_text");
+    if (ct) ImGui::PushStyleColor(ImGuiCol_Text, skin().color("control_text", g_theme.text));
     ImGui::PushFont(g_theme.bold, 0.0f);
     const bool r = ImGui::Button(label, size);
     ImGui::PopFont();
+    if (ct) ImGui::PopStyleColor();
     if (primary) ImGui::PopStyleColor(4);
     return r;
 }
@@ -287,11 +295,33 @@ bool load_skin_named(App& app, const std::string& name) {
     return true;
 }
 
+// "*.cue" style patterns -> "cue;bin" for SDL's dialog filter.
+std::string patterns_of(const char* const* pats, int n, const char* fallback) {
+    std::string out;
+    for (int i = 0; pats && i < n; ++i) {
+        std::string p = pats[i] ? pats[i] : "";
+        const size_t dot = p.find_last_of('.');
+        if (dot != std::string::npos) p = p.substr(dot + 1);
+        if (!p.empty() && p != "*") out += (out.empty() ? "" : ";") + p;
+    }
+    return out.empty() ? fallback : out;
+}
+
 // ---------------------------------------------------------------- lifecycle
 
 void App::begin(RecompLauncherCSettings* io, const RecompLauncherCGameInfo* game,
                 const char* assets_dir, const char* initial_rom) {
     title = &active_title();
+    surf.bind(title->surface, title->surface_count);
+    surf.set_show_all(std::getenv("R4L_SURFACE") && !std::strcmp(std::getenv("R4L_SURFACE"), "all"));
+    for (const auto& k : surf.unknown_keys()) std::fprintf(stderr, "[r4l] surface: unknown key %s\n", k.c_str());
+    if (io) {
+        // Restore defaults: the host's defaults when it gives them, else the
+        // settings as they were when the launcher opened.
+        defaults = (game && game->default_settings) ? *game->default_settings : *io;
+        have_defaults = true;
+        surf.apply(io);  // Locked / Auto values from the title's manifest
+    }
     s.begin(io, game, assets_dir, initial_rom);
     mods.bind(game ? game->mods : nullptr);
 #if defined(PSX_MOD_DEVELOPER_CHANNEL)
@@ -308,6 +338,19 @@ void App::begin(RecompLauncherCSettings* io, const RecompLauncherCGameInfo* game
     } else if (s.needs_setup()) {
         screen = Screen::Setup;
     }
+    // Graphics preset "auto": with nothing chosen yet, take the detected preset.
+    if (io && game && game->quality_apply && io->quality_preset == 0 && game->quality_detected >= 1 &&
+        game->quality_detected <= 4) {
+        const char* v = surf.value("graphics.preset");
+        if (!v || !std::strcmp(v, "auto")) s.quality.select(game->quality_detected, io);
+    }
+    if (mode == Mode::Launcher && s.primary_disc().empty() && !std::getenv("R4L_NO_AUTOSCAN") &&
+        (S("disc.autoscan") || surf.automatic("disc.autoscan")))
+        autoscan_disc();
+#ifndef R4L_DEFAULT_LANGUAGE
+#define R4L_DEFAULT_LANGUAGE ""
+#endif
+    load_language(s.assets_dir, std::getenv("R4L_LANGUAGE") ? std::getenv("R4L_LANGUAGE") : R4L_DEFAULT_LANGUAGE);
     if (game && game->netplay && game->netplay->player_name) {
         const char* n = game->netplay->player_name(game->netplay->ctx);
         if (n && *n && io && !io->netplay_player_name[0])
@@ -323,8 +366,9 @@ void App::init_skin() {
             std::ifstream f(sibling_path(s.launcher_prefs_path(), "launcher-skin.txt"));
             std::getline(f, want);
         }
-        if (want.empty()) want = title->id;  // the title's own skin, then "default"
-        if (!load_skin_named(*this, want)) load_skin_named(*this, "default");
+        if (want.empty()) want = title->id;  // the title's own skin, then the console theme, then "default"
+        if (!load_skin_named(*this, want) && !(s.game && s.game->theme && load_skin_named(*this, s.game->theme)))
+            load_skin_named(*this, "default");
     }
 }
 
@@ -351,15 +395,52 @@ void App::request_quit() {
     s.outcome = Outcome::Quit;
 }
 
+void App::set_pad_source(const std::string& src) {
+    // Primary column replaces the first source; Alt keeps it and adds a second.
+    std::string& v = s.pads.for_guid("", false)->source[capture.input];
+    if (!capture.alt) {
+        const size_t c = v.find(',');
+        v = src + (c == std::string::npos ? "" : v.substr(c));
+    } else {
+        const size_t c = v.find(',');
+        v = (c == std::string::npos ? v : v.substr(0, c)) + (src.empty() ? "" : ", " + src);
+    }
+}
+
 bool App::handle_event(const SDL_Event& e) {
     if (capture.kind == Capture::None) return false;
     auto finish = [&]() {
-        capture.kind = Capture::None;
         s.binds_dirty = true;
+        // Map All walks every PlayStation input in order.
+        if (capture.map_all && (capture.kind == Capture::Key || capture.kind == Capture::PadSource) &&
+            capture.input + 1 < kPsxInputCount) {
+            ++capture.input;
+            capture.started = time;
+            return;
+        }
+        capture.kind = Capture::None;
+        capture.map_all = false;
     };
     if (e.type == SDL_EVENT_KEY_DOWN) {
         if (e.key.scancode == SDL_SCANCODE_ESCAPE) {
             capture.kind = Capture::None;
+            capture.map_all = false;
+            return true;
+        }
+        if (capture.kind == Capture::HostKey) {
+            if (capture.input >= 0 && capture.input < static_cast<int>(s.hotkeys.size())) {
+                std::string v;
+                if (e.key.mod & SDL_KMOD_CTRL) v += "Ctrl+";
+                if (e.key.mod & SDL_KMOD_ALT) v += "Alt+";
+                if (e.key.mod & SDL_KMOD_SHIFT) v += "Shift+";
+                const SDL_Keycode k = e.key.key;
+                if (k == SDLK_LCTRL || k == SDLK_RCTRL || k == SDLK_LALT || k == SDLK_RALT || k == SDLK_LSHIFT ||
+                    k == SDLK_RSHIFT)
+                    return true;  // wait for the key, not the modifier
+                v += SDL_GetKeyName(k);
+                s.hotkeys[capture.input].second = e.key.scancode == SDL_SCANCODE_BACKSPACE ? "None" : v;
+            }
+            finish();
             return true;
         }
         if (capture.kind == Capture::Key) {
@@ -375,8 +456,7 @@ bool App::handle_event(const SDL_Event& e) {
         const SDL_GamepadButton btn = static_cast<SDL_GamepadButton>(e.gbutton.button);
         if (capture.kind == Capture::PadSource) {
             const char* n = SDL_GetGamepadStringForButton(btn);
-            PadMapping* m = s.pads.for_guid("", false);
-            m->source[capture.input] = n ? n : "";
+            set_pad_source(n ? n : "");
             finish();
         } else if (capture.kind == Capture::PadValue) {
             capture.combo |= 1u << btn;
@@ -406,7 +486,7 @@ bool App::handle_event(const SDL_Event& e) {
         const bool trigger = e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
                              e.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
         if (!trigger) src += e.gaxis.value > 0 ? "+" : "-";
-        s.pads.for_guid("", false)->source[capture.input] = src;
+        set_pad_source(src);
         finish();
         return true;
     }
@@ -428,7 +508,9 @@ void App::draw_capture_modal() {
                                    capture.kind == Capture::PadValue ? "Hold a button or combo, then release" :
                                    "Press a button or move a stick");
             ImGui::PopFont();
-            ImGui::TextDisabled("Esc cancels. Backspace clears a key.");
+            if (capture.kind == Capture::Key || capture.kind == Capture::PadSource)
+                ImGui::Text("%s", kPsxInputs[capture.input].label);
+            ImGui::TextDisabled("%s", tr("Esc cancels. Backspace clears a key."));
             const float t = static_cast<float>(std::fmod(time - capture.started, 1.0));
             ImGui::ProgressBar(t, ImVec2(360, 6), "");
         }
@@ -455,7 +537,9 @@ void App::draw_home() {
                                     u32(sk.color("hero_fade", theme().bg)));
     dl->PopClipRect();
     const std::string name = sk.label("home.title", t.display_name);
-    const std::string tag = sk.label("home.tagline", t.tagline);
+    std::string tag = sk.label("home.tagline", t.tagline);
+    if (s.game && s.game->platform && tag.find(s.game->platform) == std::string::npos && !sk.model().text.count("home.tagline"))
+        tag = std::string(s.game->platform) + " · " + tag;
     if (sk.loaded()) {
         const float th = sk.text_size("display", name).y, lh = sk.text_size("label", tag).y;
         sk.text(dl, "display", ImVec2(p.x + 28, p.y + hero_h - th - lh - 24), name);
@@ -469,8 +553,17 @@ void App::draw_home() {
     // Disc status card
     const DiscPick& d = s.discs[0];
     ImGui::BeginChild("##disc", ImVec2(w, 0), ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_AutoResizeY);
+    if (s.game && s.game->boxart_path && skin().loaded()) {  // the build's box art
+        int bw = 0, bh = 0;
+        const std::string bp = s.game->boxart_path[0] == '/' ? s.game->boxart_path : join_path(s.exe_dir, s.game->boxart_path);
+        if (ImTextureID t = skin().image(bp, &bw, &bh); t && bh > 0) {
+            ImGui::Image(t, ImVec2(64.0f * bw / bh, 64));
+            ImGui::SameLine();
+        }
+    }
+    ImGui::BeginGroup();
     ImGui::PushFont(theme().bold, 0.0f);
-    ImGui::TextUnformatted("Disc");
+    ImGui::TextUnformatted(tr("Disc"));
     ImGui::PopFont();
     ImGui::SameLine();
     if (d.path.empty()) chip("Not set up", theme().warn);
@@ -486,7 +579,8 @@ void App::draw_home() {
     ImGui::PushStyleColor(ImGuiCol_Text, theme().text_dim);
     ImGui::TextUnformatted(d.path.empty() ? "Choose your R4 disc image (.cue/.bin/.chd) to play." : d.path.c_str());
     ImGui::PopStyleColor();
-    if (ImGui::Button("Change disc")) screen = Screen::Setup;
+    if (S("disc.setup") && ImGui::Button(tr("Change disc"))) screen = Screen::Setup;
+    ImGui::EndGroup();
     ImGui::EndChild();
     ImGui::Dummy(ImVec2(0, 8));
 
@@ -576,7 +670,11 @@ void App::draw_setup() {
             s.set_disc(static_cast<int>(i), buf);
         ImGui::SameLine();
         if (ImGui::Button("Browse...", ImVec2(-1, 0))) {
-            static const SDL_DialogFileFilter filters[] = {{"PlayStation disc", "cue;bin;chd;iso"}};
+            static std::string pat, desc;
+            pat = patterns_of(g ? g->rom_patterns : nullptr, g ? g->num_rom_patterns : 0, "cue;bin;chd;iso");
+            desc = (g && g->rom_filter_desc) ? g->rom_filter_desc : std::string("PlayStation ") + (g && g->rom_noun ? g->rom_noun : "disc");
+            static SDL_DialogFileFilter filters[1];
+            filters[0] = SDL_DialogFileFilter{desc.c_str(), pat.c_str()};
             SDL_ShowOpenFileDialog(on_file_chosen, new DialogCtx{this, static_cast<int>(i)},
                                    SDL_GL_GetCurrentWindow(), filters, 1, nullptr, false);
         }
@@ -618,7 +716,11 @@ void App::draw_setup() {
             s.set_bios(bbuf);
         ImGui::SameLine();
         if (ImGui::Button("Browse...##b", ImVec2(-1, 0))) {
-            static const SDL_DialogFileFilter f[] = {{"BIOS image", "bin;rom"}};
+            static std::string bpat, bdesc;
+            bpat = patterns_of(g->bios_patterns, g->num_bios_patterns, "bin;rom");
+            bdesc = g->bios_filter_desc ? g->bios_filter_desc : (g->bios_name ? g->bios_name : "BIOS image");
+            static SDL_DialogFileFilter f[1];
+            f[0] = SDL_DialogFileFilter{bdesc.c_str(), bpat.c_str()};
             SDL_ShowOpenFileDialog(on_file_chosen, new DialogCtx{this, -1}, SDL_GL_GetCurrentWindow(), f, 1,
                                    nullptr, false);
         }
@@ -627,7 +729,30 @@ void App::draw_setup() {
                  s.bios_verify.ok ? theme().ok : theme().warn);
     }
 
-    const bool can_prepare = g && (g->prepare_with_progress || g->prepare_disc) &&
+    if (S("disc.toolchain") && g && g->setup_needs_toolchain && g->toolchain_is_ready && !g->toolchain_is_ready()) {
+        section(tr("Build tools"));
+        ImGui::TextWrapped("%s", tr("Building the game from your disc needs a small set of tools. They are downloaded once."));
+        if (g->toolchain_repair_note) {
+            const char* note = g->toolchain_repair_note();
+            if (note && *note) ImGui::TextWrapped("%s", note);
+        }
+        ImGui::BeginDisabled(job.running);
+        if (g->ensure_toolchain_with_progress && big_button(tr("Download build tools"), ImVec2(260, 44), false)) start_job(2);
+        ImGui::EndDisabled();
+    }
+    if (S("disc.multi") && g && g->num_discs > 1 && g->discs && s.io) {
+        section(tr("Disc selection"));
+        std::vector<std::string> labels;
+        for (int i = 0; i < g->num_discs; ++i) {
+            const RecompLauncherCDisc& d = g->discs[i];
+            labels.push_back(d.label && *d.label ? d.label : std::string(tr("Disc ")) + std::to_string(d.number ? d.number : i + 1));
+        }
+        std::vector<const char*> c;
+        for (auto& l : labels) c.push_back(l.c_str());
+        int cur = s.io->disc_index > 0 ? s.io->disc_index - 1 : 0;
+        if (row_combo(tr("Boot from"), &cur, c.data(), static_cast<int>(c.size()))) s.io->disc_index = cur + 1;
+    }
+    const bool can_prepare = S("disc.prepare") && g && (g->prepare_with_progress || g->prepare_disc) &&
                              (g->setup_wizard_supported || g->prepare_required_before_continue);
     if (can_prepare) {
         section(g->prepare_section_title ? g->prepare_section_title : "3  Build the game");
@@ -637,6 +762,7 @@ void App::draw_setup() {
         ImGui::PopStyleColor();
         if (job.running) {
             std::lock_guard<std::mutex> lk(job.mu);
+            if (g->prepare_busy_status) ImGui::TextDisabled("%s", g->prepare_busy_status);
             ImGui::ProgressBar(job.pct / 100.0f, ImVec2(-1, 0), job.message.c_str());
         } else {
             if (job.done) {
@@ -647,6 +773,9 @@ void App::draw_setup() {
                     s.outcome = Outcome::Relaunch;
                 } else if (!job.rc) {
                     s.status = job.error.empty() ? "Prepare failed." : job.error;
+                } else {
+                    s.status = g->rebuild_after_prepare ? (g->rebuild_success_status ? g->rebuild_success_status : tr("Build complete."))
+                                                        : (g->prepare_success_status ? g->prepare_success_status : tr("Ready."));
                 }
             }
             ImGui::BeginDisabled(!s.media_ready());
@@ -656,7 +785,8 @@ void App::draw_setup() {
                 job.worker = std::thread([this, g]() {
                     char out[1024] = {0}, err[512] = {0}, exe[1024] = {0};
                     int ok = 1;
-                    const std::string src = s.primary_disc();
+                    // prepare_use_selected_rom: the wizard's chosen disc is the source.
+                    const std::string src = g->prepare_use_selected_rom ? s.primary_disc() : std::string();
                     if (g->prepare_with_progress)
                         ok = g->prepare_with_progress(src.c_str(), out, sizeof(out), err, sizeof(err), job_progress, &job);
                     else if (g->prepare_disc)
@@ -679,6 +809,10 @@ void App::draw_setup() {
 
     ImGui::Dummy(ImVec2(0, 16));
     const bool blocked = g && g->prepare_required_before_continue && can_prepare;
+    // Say why Continue is off.
+    if (!s.media_ready()) ImGui::TextColored(theme().warn, "%s", s.primary_disc().empty() ? tr("Choose your disc to continue.")
+                                                                                          : tr("This disc image cannot be used."));
+    else if (blocked) ImGui::TextColored(theme().warn, "%s", tr("Build the game from your disc first."));
     ImGui::BeginDisabled(!s.media_ready() || blocked || job.running);
     if (big_button("Continue", ImVec2(220, 52), true)) {
         std::string err;
@@ -721,10 +855,32 @@ void App::draw_about() {
         section("Game credits");
         ImGui::TextWrapped("%s", s.game->credits_text);
     }
-    section("Build");
-    ImGui::TextDisabled("Launcher r4l %s · Dear ImGui %s · SDL %d.%d.%d", R4L_VERSION, IMGUI_VERSION,
-                        SDL_VERSIONNUM_MAJOR(SDL_GetVersion()), SDL_VERSIONNUM_MINOR(SDL_GetVersion()),
-                        SDL_VERSIONNUM_MICRO(SDL_GetVersion()));
+    if (surf.shown("about.version")) {
+        section(tr("Version"));
+        ImGui::TextDisabled("recomp-launcher %s · Dear ImGui %s · SDL %d.%d.%d", R4L_VERSION, IMGUI_VERSION,
+                            SDL_VERSIONNUM_MAJOR(SDL_GetVersion()), SDL_VERSIONNUM_MINOR(SDL_GetVersion()),
+                            SDL_VERSIONNUM_MICRO(SDL_GetVersion()));
+        if (s.game && s.game->name) ImGui::TextDisabled("%s %s", s.game->name, s.game->region ? s.game->region : "");
+    }
+    const RecompLauncherCGameInfo* g = s.game;
+    if (surf.shown("about.updates") && g && g->toolchain_update_available) {
+        section(tr("Updates"));
+        char local[64] = {0}, remote[64] = {0};
+        if (g->toolchain_update_available(local, sizeof local, remote, sizeof remote)) {
+            ImGui::Text("%s %s -> %s", tr("Build tools update available:"), local, remote);
+            if (g->ensure_toolchain_with_progress && ImGui::Button(tr("Update build tools"))) start_job(2);
+        } else {
+            ImGui::TextDisabled("%s %s", tr("Build tools are current"), local);
+        }
+        if (g->toolchain_repair_note) {
+            const char* note = g->toolchain_repair_note();
+            if (note && *note) ImGui::TextWrapped("%s", note);
+        }
+    }
+    if (surf.shown("about.logs")) {
+        section(tr("Logs"));
+        if (ImGui::Button(tr("Open the game folder"))) SDL_OpenURL(("file://" + s.exe_dir).c_str());
+    }
 }
 
 }  // namespace r4l

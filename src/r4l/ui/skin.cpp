@@ -381,7 +381,9 @@ void Skin::draw_cursor(ImDrawList* dl, ImVec2 a, ImVec2 b) const {
 }
 
 ImFont* Skin::imfont(const std::string& role) const {
-    auto it = fonts_.find(role);
+    auto it = fonts_.find(role + "@" + screen_);
+    if (it != fonts_.end() && it->second) return it->second;
+    it = fonts_.find(role);
     if (it != fonts_.end() && it->second) return it->second;
     it = fonts_.find("body");
     return it != fonts_.end() ? it->second : nullptr;
@@ -398,7 +400,8 @@ ImVec2 Skin::text_size(const std::string& role, const std::string& str) const {
     auto st = m_.fonts.find(role + "@" + screen_);
     if (st == m_.fonts.end()) st = m_.fonts.find(role);
     const std::string t = (st != m_.fonts.end() && st->second.uppercase) ? upper(str) : str;
-    auto bm = bitmaps_.find(role);
+    auto bm = bitmaps_.find(role + "@" + screen_);
+    if (bm == bitmaps_.end()) bm = bitmaps_.find(role);
     const float px = font_px(role);
     if (bm != bitmaps_.end()) {
         const BitmapFont& f = bm->second;
@@ -426,7 +429,8 @@ void Skin::text(ImDrawList* dl, const std::string& role, ImVec2 pos, const std::
     pos.x -= sz.x * align;
     const float px = font_px(role);
     const ImU32 main = override_color ? u32(*override_color) : u32c(style.color);
-    auto bm = bitmaps_.find(role);
+    auto bm = bitmaps_.find(role + "@" + screen_);
+    if (bm == bitmaps_.end()) bm = bitmaps_.find(role);
     auto draw_at = [&](ImVec2 p, ImU32 c) {
         if (bm != bitmaps_.end()) {
             const BitmapFont& f = bm->second;

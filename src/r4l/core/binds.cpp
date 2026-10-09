@@ -136,9 +136,10 @@ bool save_pad_binds(const std::string& path, const PadBinds& b) {
     return d.save(path);
 }
 
+// The [KeyMap] actions psxrecomp's host_keymap.c reads.
 const char* const kHostShortcutKeys[] = {
-    "Fullscreen", "Reset", "Pause", "Turbo", "TurboToggle", "Rewind", "SaveStateMenu",
-    "VolumeUp", "VolumeDown", "DisplayPerf", "OpenLauncher",
+    "Fullscreen", "Turbo", "TurboToggle", "Rewind", "SaveStateMenu",
+    "VolumeUp", "VolumeDown", "DisplayPerf", "Scanlines",
 };
 const int kHostShortcutKeyCount =
     static_cast<int>(sizeof(kHostShortcutKeys) / sizeof(kHostShortcutKeys[0]));

@@ -15,10 +15,6 @@ namespace r4l {
 namespace {
 ImU32 u32(const ImVec4& c) { return ImGui::ColorConvertFloat4ToU32(c); }
 
-const Screen kLauncherNav[] = {Screen::Home, Screen::Graphics, Screen::Mods,
-                               Screen::Controls, Screen::Netplay, Screen::About};
-const Screen kOverlayNav[] = {Screen::Resume, Screen::Graphics, Screen::Controls,
-                              Screen::Mods, Screen::About, Screen::QuitGame};
 
 const char* skin_key(Screen s) {
     switch (s) {
@@ -31,6 +27,7 @@ const char* skin_key(Screen s) {
     case Screen::About: return "About";
     case Screen::Resume: return "Resume";
     case Screen::QuitGame: return "Quit";
+    case Screen::System: return "System";
     default: return "";
     }
 }
@@ -86,6 +83,28 @@ void apply_skin_theme() {
 void App::frame() {
     time = ImGui::GetTime();
     s.tick();
+    if (job.done && !job.running && screen != Screen::Setup) {  // jobs started outside the wizard
+        job.join();
+        job.done = false;
+        std::lock_guard<std::mutex> lk(job.mu);
+        if (job.rc && !job.out_path.empty()) {
+            s.relaunch_exe = job.out_path;
+            s.outcome = Outcome::Relaunch;
+        } else {
+            const RecompLauncherCGameInfo* g = s.game;
+            const char* ok = !g ? nullptr : job_kind == 3 ? g->pgo_success_status : job_kind == 4 ? g->fmv_timing_success_status
+                           : job_kind == 5 ? g->bios_prepare_success_status : nullptr;
+            s.status = job.rc ? (ok ? ok : tr("Done.")) : (job.error.empty() ? tr("That did not work.") : job.error);
+        }
+    }
+    {   // Disc-sourced skin art: (re)extract when the chosen disc changes.
+        static std::string last_disc;
+        if (last_disc != s.primary_disc()) {
+            last_disc = s.primary_disc();
+            assets_checked = false;
+        }
+        if (!assets_checked) ensure_disc_assets();
+    }
     Skin& sk = skin();
     std::string serr;
     if (sk.maybe_reload(time, &serr)) {
@@ -97,8 +116,20 @@ void App::frame() {
     if (!overlay && s.game && s.game->netplay && s.game->netplay->pump) s.game->netplay->pump(s.game->netplay->ctx);
     if (overlay) overlay_tick();
 
-    const Screen* nav = overlay ? kOverlayNav : kLauncherNav;
-    const int nav_n = 6;
+    // The rail lists only pages the title's surface manifest leaves something on.
+    std::vector<Screen> navv;
+    if (overlay) navv.push_back(Screen::Resume);
+    else navv.push_back(Screen::Home);
+    if (surf.any_shown("graphics.")) navv.push_back(Screen::Graphics);
+    if (surf.any_shown("controls.")) navv.push_back(Screen::Controls);
+    if (surf.any_shown("mods.") && mods.available()) navv.push_back(Screen::Mods);
+    if (!overlay && surf.any_shown("netplay.") && s.game && s.game->netplay_supported && s.game->netplay)
+        navv.push_back(Screen::Netplay);
+    if (surf.any_shown("audio.") || surf.any_shown("system.") || S("bios.select")) navv.push_back(Screen::System);
+    if (surf.any_shown("about.")) navv.push_back(Screen::About);
+    if (overlay) navv.push_back(Screen::QuitGame);
+    const Screen* nav = navv.data();
+    const int nav_n = static_cast<int>(navv.size());
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const float W = vp->WorkSize.x, H = vp->WorkSize.y;
     sk.begin_frame(W, H, std::string(overlay ? "Overlay." : "") + skin_key(screen), time);
@@ -180,7 +211,7 @@ void App::frame() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     {
         const Rect brand = sk.rect(pre + "brand", Rect{rail.x + 16 * u, rail.y + 20 * u, rail.w - 32 * u, 60 * u});
-        if (sk.loaded()) {
+        if (sk.loaded() && brand.h > 0) {
             sk.text(dl, "logo", iv(brand.x, brand.y), sk.label("brand.title", "R4"));
             const ImVec2 ls = sk.text_size("logo", sk.label("brand.title", "R4"));
             sk.text(dl, "label", iv(brand.x, brand.y + ls.y), sk.label("brand.subtitle", overlay ? "PAUSED" : "RIDGE RACER TYPE 4"));
@@ -229,9 +260,9 @@ void App::frame() {
             else dl->AddRectFilled(a, b, u32(theme().surface_hi), 8);
         }
         if (sel && sk.loaded()) sk.draw_cursor(dl, a, b);
-        std::string label = (sc == Screen::Home && setup_mode) ? "Disc setup" : screen_name(sc);
-        if (sc == Screen::Resume) label = "Resume";
-        if (sc == Screen::QuitGame) label = "Quit game";
+        std::string label = tr((sc == Screen::Home && setup_mode) ? "Disc setup" : screen_name(sc));
+        if (sc == Screen::Resume) label = tr("Resume");
+        if (sc == Screen::QuitGame) label = tr("Quit game");
         label = sk.label(std::string("nav.") + skin_key(sc), label);
         const ImVec4 col = (sel || hov) ? sk.color("nav_selected", theme().text) : sk.color("nav", theme().text_dim);
         if (sk.loaded()) {
@@ -252,7 +283,9 @@ void App::frame() {
         const Rect pb = sk.rect("play_button", Rect{rail.x + 16 * u, rail.y + rail.h - 84 * u, rail.w - 32 * u, 56 * u});
         ImGui::SetCursorScreenPos(iv(pb.x, pb.y));
         const bool ready = s.media_ready();
-        const std::string lbl = sk.label(ready ? "play" : "play.setup", ready ? "PLAY" : "SET UP DISC");
+        const bool resume = s.game && s.game->in_session;  // reopened from a running game
+        const std::string lbl = resume ? sk.label("play.resume", tr("RESUME"))
+                                       : sk.label(ready ? "play" : "play.setup", ready ? tr("PLAY") : tr("SET UP DISC"));
         if (ImGui::InvisibleButton("##play", ImVec2(pb.w, pb.h))) {
             sk.play("confirm");
             if (ready) request_launch();
@@ -296,6 +329,7 @@ void App::frame() {
     case Screen::Netplay: draw_netplay(); break;
     case Screen::Setup: draw_setup(); break;
     case Screen::About: draw_about(); break;
+    case Screen::System: draw_system(); break;
     default: break;
     }
     ImGui::EndChild();

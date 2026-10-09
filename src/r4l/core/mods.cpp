@@ -17,6 +17,33 @@ void ModCatalog::refresh(bool include_developer) {
             if (p_->package_get(p_->ctx, i, &pk)) packages.push_back(pk);
         }
     }
+    package_views.clear();
+    catalog_diagnostics.clear();
+    for (const auto& pk : packages) {
+        ModPackageView v;
+        v.info = pk;
+        if (p_->version_count && p_->version_get)
+            for (int i = 0, n = p_->version_count(p_->ctx, pk.id); i < n; ++i) {
+                RecompLauncherCModVersion ver{};
+                if (p_->version_get(p_->ctx, pk.id, i, &ver)) v.versions.push_back(ver);
+            }
+        if (p_->option_get)
+            for (int i = 0; i < pk.option_count; ++i) {
+                ModOption o;
+                if (!p_->option_get(p_->ctx, pk.id, i, &o.info)) continue;
+                for (int c = 0; c < o.info.choice_count && p_->choice_get; ++c) {
+                    RecompLauncherCModChoice ch{};
+                    if (p_->choice_get(p_->ctx, pk.id, o.info.id, c, &ch)) o.choices.push_back(ch);
+                }
+                v.options.push_back(o);
+            }
+        package_views.push_back(v);
+    }
+    if (p_->catalog_diagnostic_count && p_->catalog_diagnostic_get)
+        for (int i = 0, n = p_->catalog_diagnostic_count(p_->ctx); i < n; ++i) {
+            RecompLauncherCModDiagnostic d{};
+            if (p_->catalog_diagnostic_get(p_->ctx, i, &d)) catalog_diagnostics.push_back(d);
+        }
     if (!available()) return;
     const int n = p_->feature_count(p_->ctx);
     for (int i = 0; i < n; ++i) {
@@ -42,6 +69,11 @@ void ModCatalog::refresh(bool include_developer) {
                     f.diagnostics.push_back(dg);
             }
         }
+        if (p_->feature_resource_count && p_->feature_resource_get)
+            for (int k = 0, rn = p_->feature_resource_count(p_->ctx, f.info.package_id, f.info.id); k < rn; ++k) {
+                RecompLauncherCModResource r{};
+                if (p_->feature_resource_get(p_->ctx, f.info.package_id, f.info.id, k, &r)) f.resources.push_back(r);
+            }
         features.push_back(f);
     }
     for (size_t i = 0; i < features.size(); ++i) {
@@ -95,11 +127,17 @@ bool ModCatalog::set_option(ModFeature& f, const ModOption& o, const std::string
 
 bool ModCatalog::commit(const std::string& disc_path, std::string* err) {
     if (!p_ || !p_->commit) return true;
+    // Fast path: a plan the host already prepared in the background for this
+    // selection (preparation_revision unchanged) is committed without redoing it.
+    if (p_->try_commit && p_->commit_worker_safe && !dirty_ && p_->preparation_revision &&
+        p_->preparation_revision(p_->ctx) == prepared_revision_ && p_->try_commit(p_->ctx, disc_path.c_str()) > 0)
+        return true;
     if (!p_->commit(p_->ctx, disc_path.c_str())) {
         if (err) *err = last_error();
         return false;
     }
     dirty_ = false;
+    if (p_->preparation_revision) prepared_revision_ = p_->preparation_revision(p_->ctx);
     return true;
 }
 
@@ -173,6 +211,43 @@ bool ModCatalog::remove(const RecompLauncherCModPackage& pkg, std::string* err) 
     }
     dirty_ = true;
     return true;
+}
+
+bool ModCatalog::select_version(const RecompLauncherCModPackage& pkg, const char* version) {
+    if (!p_ || !p_->select_version || !p_->select_version(p_->ctx, pkg.id, version)) return false;
+    dirty_ = true;
+    return true;
+}
+
+bool ModCatalog::set_package_enabled(ModPackageView& pkg, bool on) {
+    if (!p_ || !p_->set_enabled || !p_->set_enabled(p_->ctx, pkg.info.id, on ? 1 : 0)) return false;
+    pkg.info.enabled = on ? 1 : 0;
+    dirty_ = true;
+    return true;
+}
+
+bool ModCatalog::set_package_option(ModPackageView& pkg, ModOption& o, const std::string& value) {
+    if (!p_ || !p_->set_option || !p_->set_option(p_->ctx, pkg.info.id, o.info.id, value.c_str())) return false;
+    std::snprintf(o.info.value, sizeof o.info.value, "%s", value.c_str());
+    dirty_ = true;
+    return true;
+}
+
+bool ModCatalog::set_resource(ModFeature& f, const RecompLauncherCModResource& r, const std::string& path) {
+    if (!p_ || !p_->feature_resource_set_path ||
+        !p_->feature_resource_set_path(p_->ctx, f.info.package_id, f.info.id, r.id, path.c_str()))
+        return false;
+    for (auto& x : f.resources)
+        if (!std::strcmp(x.id, r.id)) std::snprintf(x.path, sizeof x.path, "%s", path.c_str());
+    dirty_ = true;
+    return true;
+}
+
+int ModCatalog::disable_all() {
+    int n = 0;
+    for (auto& f : features)
+        if (f.info.enabled && set_enabled(f, false)) ++n;
+    return n;
 }
 
 std::string ModCatalog::archive_patterns() const {

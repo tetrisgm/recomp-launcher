@@ -2,6 +2,10 @@
 #include "r4l/title.h"
 
 #include "imgui.h"
+#include "r4l/core/discfs.h"
+#include "r4l/core/session.h"
+
+#include <cstdio>
 
 #include <cmath>
 
@@ -42,6 +46,73 @@ const TitleNotice kNotices[] = {
      "ships no game data; you supply your own disc.",
      nullptr},
 };
+
+// R4's surfacing decisions (docs/SUPPORTED.md): as few rows as possible,
+// everything else automatic. Undeclared keys follow the default rule.
+const SurfaceRule kSurface[] = {
+    // Graphics: the preset (Auto = detected Low..Ultra), Smooth motion, screen mode.
+    {"graphics.preset", Vis::Shown, "auto"},
+    {"graphics.redetect", Vis::Hidden, nullptr},          // Auto re-detects
+    {"graphics.frame_generation", Vis::Shown, nullptr},   // "Smooth motion"
+    {"graphics.fullscreen", Vis::Shown, nullptr},
+    {"graphics.dynamic_resolution", Vis::Auto, nullptr}, // the preset decides
+    {"graphics.internal_resolution", Vis::Auto, nullptr},// the preset sets it
+    {"graphics.title_features", Vis::Hidden, nullptr},    // widescreen Fit / max detail stay on
+    // Controls: Modern / Classic and rebinding.
+    {"controls.scheme", Vis::Shown, nullptr},
+    {"controls.bindings", Vis::Shown, nullptr},
+    {"controls.devices", Vis::Shown, nullptr},
+    {"controls.assist", Vis::Hidden, nullptr},
+    // Disc: found automatically; OpenBIOS is bundled, so no BIOS prompt.
+    {"disc.autoscan", Vis::Auto, "auto"},
+    {"disc.toolchain", Vis::Hidden, nullptr},
+    {"bios.select", Vis::Hidden, nullptr},
+    // Settings page: volume only; memory cards use the default cards.
+    {"system.memcards", Vis::Hidden, nullptr},
+    {"system.language", Vis::Hidden, nullptr},
+    // Netplay: host and join (lobby, chat, seats are essentials by default).
+    {"netplay.host", Vis::Shown, nullptr},
+    {"netplay.join", Vis::Shown, nullptr},
+    // Mods: shown, simple (no package view, versions or resource pickers).
+    {"mods.list", Vis::Shown, nullptr},
+    {"mods.install", Vis::Shown, nullptr},
+    {"about.updates", Vis::Hidden, nullptr},
+};
+
+// Disc-sourced skin art: the "R4 RIDGE RACER TYPE 4" logo and the menu
+// font, read from R4.BIN on the player's own disc (offsets for SLUS-00797).
+// Written into the local cache; nothing from the disc is ever shipped.
+bool extract_r4_assets(const char* disc_path, const char* out_dir, char* err, size_t cap) {
+    auto fail = [&](const std::string& m) {
+        std::snprintf(err, cap, "%s", m.c_str());
+        return false;
+    };
+    DiscImage disc;
+    std::string e;
+    if (!disc.open(disc_path, &e)) return fail(e);
+    std::vector<uint8_t> bin;
+    if (!disc.read_file("R4.BIN", &bin, &e)) return fail(e);
+    Rgba logo_tim, font_tim;
+    if (!decode_tim(bin, 0x02dcd28c, &logo_tim) || logo_tim.w != 256 || logo_tim.h != 256)
+        return fail("logo image not found (not SLUS-00797?)");
+    if (!decode_tim(bin, 0x02d59000, &font_tim) || font_tim.w != 256 || font_tim.h != 60)
+        return fail("font image not found (not SLUS-00797?)");
+    Rgba logo = crop(logo_tim, 34, 151, 188, 82);
+    tint(&logo, 0x77, 0x77, 0x77);  // the title menu shows the logo in grey
+    logo = scale_nearest(logo, 2);
+    const std::string dir = out_dir;
+    if (!write_png_rgba(join_path(dir, "logo.png"), logo.w, logo.h, logo.px.data()))
+        return fail("cannot write logo.png");
+    Rgba font = font_tim;
+    tint(&font, 0xff, 0xff, 0xff);  // white glyphs; skins tint them
+    // Rows: symbols (only . , : mapped) then 0123 / 4-9 A-Z / a-z.
+    std::string row0 = ".,:" + std::string(25, ' ') + "0123";
+    if (!write_bitmap_font(font, {{{2, 18}, row0}, {{22, 38}, "456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"},
+                                  {{42, 59}, "abcdefghijklmnopqrstuvwxyz"}},
+                           dir, "font", 16, &e))
+        return fail(e);
+    return true;
+}
 
 // Speed lines and a horizon: a cheap, resolution-independent hero.
 void draw_hero(void* dl_v, float x0, float y0, float x1, float y1, double t) {
@@ -88,6 +159,9 @@ const TitleLayer kR4 = {
     static_cast<int>(sizeof(kNotices) / sizeof(kNotices[0])),
     "A static recompilation of R4: Ridge Racer Type 4 (USA) built on psxrecomp. "
     "It runs natively, with no emulator behind it.",
+    kSurface,
+    static_cast<int>(sizeof(kSurface) / sizeof(kSurface[0])),
+    extract_r4_assets,
     draw_hero,
 };
 

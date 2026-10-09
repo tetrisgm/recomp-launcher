@@ -21,7 +21,7 @@ namespace r4l {
 
 struct App;
 
-enum class Screen { Home, Graphics, Mods, Controls, Netplay, Setup, About, Resume, QuitGame, Count };
+enum class Screen { Home, Graphics, Mods, Controls, Netplay, Setup, About, Resume, QuitGame, System, Count };
 enum class Mode { Launcher, Overlay };
 const char* screen_name(Screen s);
 
@@ -42,7 +42,8 @@ bool load_skin_named(App& app, const std::string& name_or_path);
 
 // Input capture for rebinding (keyboard, gamepad button, axis or combo).
 struct Capture {
-    enum Kind { None, Key, PadSource, PadValue } kind = None;
+    enum Kind { None, Key, PadSource, PadValue, HostKey } kind = None;
+    bool map_all = false;  // walk every input in order (Map All)
     int player = 0;
     int input = 0;      // kPsxInputs index or assist slot
     bool alt = false;   // keyboard alternate column
@@ -99,6 +100,27 @@ struct App {
     bool np_lan_only = false;
     bool np_connected_once = false;
     std::string np_status;
+    char np_url[160] = "";
+    char np_handle[64] = "";
+    char np_server_chat[200] = "";
+    char np_report_note[200] = "";
+    int np_list_scope = 0;
+    int np_report_reason = 0;
+    std::string np_report_target, np_join_lobby;  // lobby needing a password
+    bool np_show_password = false, np_show_report = false, np_show_network = false, np_show_automatch = false;
+    std::vector<std::string> np_blocked;          // moderation.ini accounts
+    char mods_search[64] = "";
+    bool mods_packages_view = false;
+    int selected_package = -1;
+    // Surface manifest (title.h): what this title shows, hides, locks.
+    Surface surf;
+    bool S(const char* key) const { return surf.shown(key); }
+    bool L(const char* key) const { return surf.locked(key); }
+    RecompLauncherCSettings defaults{};          // for Restore defaults
+    bool have_defaults = false;
+    std::string toolchain_note;
+    int job_kind = 0;
+    bool assets_checked = false;
 
     // Lifecycle
     void begin(RecompLauncherCSettings* io, const RecompLauncherCGameInfo* game,
@@ -106,6 +128,7 @@ struct App {
     void init_skin();                      // after the ImGui context exists
     void frame();                          // build one ImGui frame
     bool handle_event(const SDL_Event& e); // true = swallowed (capture)
+    void set_pad_source(const std::string& src);
     void request_launch();
     void request_quit();
 
@@ -118,12 +141,24 @@ struct App {
     void draw_netplay();
     void draw_setup();
     void draw_about();
+    void draw_system();     // audio, system, memory cards, BIOS, hotkeys
+    void draw_memcards();
+    void ensure_disc_assets();
+    void autoscan_disc();
+    void start_job(int kind);  // 0 prepare, 1 rebuild, 2 toolchain, 3 pgo, 4 fmv timing, 5 bios
+    void restore_defaults();
     void draw_footer();
     void draw_capture_modal();
     void overlay_tick();                   // live-apply + resume handling
     bool restart_needed(size_t offset, size_t size) const;
     void restart_chip(size_t offset, size_t size);
 };
+
+// Translation (assets/i18n/<lang>.json); falls back to the English text.
+const char* tr(const char* english);
+void load_language(const std::string& assets_dir, const std::string& lang);
+
+std::string patterns_of(const char* const* pats, int n, const char* fallback);
 
 // Widgets
 void screen_title(const char* title, const char* sub = nullptr);
