@@ -111,6 +111,7 @@ void feed(App& a, const SDL_Event& e) {
     case SDL_EVENT_MOUSE_MOTION: io.AddMousePosEvent(e.motion.x, e.motion.y); break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
+        io.AddMousePosEvent(e.button.x, e.button.y);
         if (e.button.button >= 1 && e.button.button <= 3)
             io.AddMouseButtonEvent(e.button.button == 1 ? 0 : e.button.button == 3 ? 1 : 2,
                                    e.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
@@ -235,8 +236,19 @@ extern "C" int recomp_overlay_handle_event(const void* ev) {
     case SDL_EVENT_MOUSE_MOTION: case SDL_EVENT_MOUSE_BUTTON_DOWN: case SDL_EVENT_MOUSE_BUTTON_UP:
     case SDL_EVENT_MOUSE_WHEEL: case SDL_EVENT_GAMEPAD_BUTTON_DOWN: case SDL_EVENT_GAMEPAD_BUTTON_UP:
     case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+        SDL_Event q = e;
+        // ImGui works in framebuffer pixels here; mouse events are in points.
+        int ww = 0, wh = 0, pw = 0, ph = 0;
+        if (o.window && SDL_GetWindowSize(o.window, &ww, &wh) && SDL_GetWindowSizeInPixels(o.window, &pw, &ph) &&
+            ww > 0 && wh > 0) {
+            const float sx = static_cast<float>(pw) / ww, sy = static_cast<float>(ph) / wh;
+            if (q.type == SDL_EVENT_MOUSE_MOTION) { q.motion.x *= sx; q.motion.y *= sy; }
+            if (q.type == SDL_EVENT_MOUSE_BUTTON_DOWN || q.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+                q.button.x *= sx; q.button.y *= sy;
+            }
+        }
         std::lock_guard<std::mutex> lk(o.mu);
-        o.events.push_back(e);
+        o.events.push_back(q);
         return 1;
     }
     default: return 0;  // quit, window and device events stay with the host
