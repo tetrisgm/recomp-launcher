@@ -11,6 +11,7 @@
 #include <set>
 #include <sstream>
 
+#define STB_IMAGE_STATIC  // the host may link its own stb_image (psxrecomp does)
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #define STBI_ONLY_TGA
