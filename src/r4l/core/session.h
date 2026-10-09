@@ -86,5 +86,7 @@ int run_netplay_handoff(RecompLauncherCSettings* io, const RecompLauncherCGameIn
 std::string dir_of(const std::string& path);
 std::string join_path(const std::string& dir, const std::string& name);
 std::string current_exe_dir();
+// Hosts pass either .../assets or the exe dir; find the folder holding skins/ and fonts/.
+std::string resolve_assets_dir(const char* given);
 
 }  // namespace r4l

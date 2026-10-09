@@ -18,6 +18,7 @@
 #include <string>
 
 namespace {
+using r4l::join_path;
 int g_preserve_sdl = 0;
 std::string g_relaunch_exe;
 }  // namespace
@@ -41,7 +42,7 @@ extern "C" int recomp_launcher_run_window(const char* window_title, RecompLaunch
 
     auto holder = std::make_unique<App>();
     App& app = *holder;
-    std::string assets = assets_dir && *assets_dir ? assets_dir : "assets";
+    std::string assets = resolve_assets_dir(assets_dir);
     app.begin(io, game, assets.c_str(), initial_rom);
 
     int w = 1280, h = 800;

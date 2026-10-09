@@ -7,6 +7,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -42,6 +43,17 @@ std::string current_exe_dir() {
     buf[n] = 0;
 #endif
     return dir_of(buf);
+}
+
+std::string resolve_assets_dir(const char* given) {
+    auto has = [](const std::string& d) {
+        struct stat st{};
+        return stat(join_path(d, "fonts").c_str(), &st) == 0 || stat(join_path(d, "skins").c_str(), &st) == 0;
+    };
+    const std::string g = given && *given ? given : "assets";
+    for (const std::string& c : {g, join_path(g, "assets"), join_path(current_exe_dir(), "assets")})
+        if (has(c)) return c;
+    return g;
 }
 
 void Session::begin(RecompLauncherCSettings* io_, const RecompLauncherCGameInfo* game_,

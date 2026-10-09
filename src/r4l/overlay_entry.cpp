@@ -68,7 +68,7 @@ extern "C" int recomp_overlay_init(void* sdl_window, void* gl_context, const Rec
     App& a = *g_ov->app;
     a.mode = Mode::Overlay;
     a.host = host;
-    a.begin(io, game, assets_dir ? assets_dir : "assets", nullptr);
+    a.begin(io, game, resolve_assets_dir(assets_dir).c_str(), nullptr);
     if (host && host->mod_set_live)
         a.mods.live = [host](const char* p, const char* f, const char* o, const char* v) {
             return host->mod_set_live(host->ctx, p, f, o, v);
