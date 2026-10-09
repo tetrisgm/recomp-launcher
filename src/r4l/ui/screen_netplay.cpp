@@ -140,7 +140,12 @@ void App::draw_netplay() {
             ImGui::SameLine();
         }
         if (host && np->request_start) {
-            const bool all = np->all_ready && np->all_ready(c);
+            // all_ready() is the lobby server's view; a LAN / Direct-IP room has
+            // no server, so fall back to the seated members' own ready flags.
+            int seated = 0, ready = 0;
+            for (int sl = 0; sl <= RECOMP_LAUNCHER_NETPLAY_MAX_MEMBERS; ++sl)
+                if (filled[sl]) { ++seated; ready += m[sl].ready ? 1 : 0; }
+            const bool all = (np->all_ready && np->all_ready(c)) || (seated >= 2 && ready == seated);
             ImGui::BeginDisabled(!all || !s.media_ready());
             if (big_button("Start race", ImVec2(200, 52), true) && !np->request_start(c, io)) call_err("Start failed");
             ImGui::EndDisabled();
