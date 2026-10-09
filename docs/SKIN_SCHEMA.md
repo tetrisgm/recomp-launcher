@@ -83,7 +83,9 @@ Roles: `body` (all ordinary widgets), `heading` (screen titles), `display`
 
 `radius`, `control_radius`, `nav_item_height`, `nav_item_gap`,
 `hero_height`, `hero_art` (0 hides the title's procedural hero),
-`play_slant` (>0 draws the Play button as a parallelogram).
+`play_slant` (>0 draws the Play button as a parallelogram), `subtitle` (0 hides
+screen subtitles), `heading_gap` (space under a screen heading, e.g. to clear
+a header rule).
 
 ## layout regions
 

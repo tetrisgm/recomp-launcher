@@ -243,7 +243,11 @@ void screen_title(const char* t, const char* sub) {
         ImGui::TextUnformatted(t);
         ImGui::PopFont();
     }
-    if (sub) {
+    if (sk.loaded()) {  // gap below the heading, e.g. to clear a header rule
+        const float gap = sk.model().metric("heading_gap@" + std::string(t), sk.model().metric("heading_gap", 0));
+        if (gap > 0) ImGui::Dummy(ImVec2(0, gap * sk.s()));
+    }
+    if (sub && (!sk.loaded() || sk.model().metric("subtitle", 1) != 0)) {
         ImGui::PushStyleColor(ImGuiCol_Text, g_theme.text_dim);
         ImGui::TextWrapped("%s", sub);
         ImGui::PopStyleColor();
