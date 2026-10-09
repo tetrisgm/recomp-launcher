@@ -114,6 +114,10 @@ void App::draw_graphics() {
                 const int p = g->quality_redetect ? g->quality_redetect() : g->quality_detected;
                 if (p >= kQualityLow && p <= kQualityUltra) s.quality.select(p, io);
             }
+            if (is_auto) {
+                const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+                ImGui::GetWindowDrawList()->AddRect(a, b, ImGui::ColorConvertFloat4ToU32(theme().accent), 8.0f, 0, 2.0f);
+            }
             if (!vertical) ImGui::SameLine(0, 10);
         }
         for (int p = kQualityLow; p <= kQualityUltra; ++p) {
@@ -131,7 +135,9 @@ void App::draw_graphics() {
                 const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
                 ImGui::GetWindowDrawList()->AddRect(a, b, ImGui::ColorConvertFloat4ToU32(sk.color("nav_item_border", theme().line)));
             }
-            if (base) {
+            if (sel || base) {
+                // The chosen preset must read as chosen in every skin, even one
+                // whose primary and plain buttons share a colour.
                 const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
                 ImGui::GetWindowDrawList()->AddRect(a, b, ImGui::ColorConvertFloat4ToU32(theme().accent), 8.0f, 0, 2.0f);
             }
