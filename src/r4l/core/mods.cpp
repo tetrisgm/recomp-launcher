@@ -65,8 +65,12 @@ ModFeature* ModCatalog::find(const char* package_id, const char* feature_id) {
 }
 
 bool ModCatalog::set_enabled(ModFeature& f, bool on) {
-    if (!p_ || !p_->feature_enable) return false;
-    if (!p_->feature_enable(p_->ctx, f.info.package_id, f.info.id, on ? 1 : 0)) return false;
+    // In-game (live set): the host records and saves the change on its own
+    // thread; this side only mirrors it. In the launcher, the provider does.
+    if (!live) {
+        if (!p_ || !p_->feature_enable) return false;
+        if (!p_->feature_enable(p_->ctx, f.info.package_id, f.info.id, on ? 1 : 0)) return false;
+    }
     f.info.enabled = on ? 1 : 0;
     dirty_ = true;
     if (live && !live(f.info.package_id, f.info.id, nullptr, on ? "true" : "false"))
@@ -75,9 +79,11 @@ bool ModCatalog::set_enabled(ModFeature& f, bool on) {
 }
 
 bool ModCatalog::set_option(ModFeature& f, const ModOption& o, const std::string& value) {
-    if (!p_ || !p_->feature_set_option) return false;
-    if (!p_->feature_set_option(p_->ctx, f.info.package_id, f.info.id, o.info.id, value.c_str()))
-        return false;
+    if (!live) {
+        if (!p_ || !p_->feature_set_option) return false;
+        if (!p_->feature_set_option(p_->ctx, f.info.package_id, f.info.id, o.info.id, value.c_str()))
+            return false;
+    }
     for (auto& x : f.options)
         if (!std::strcmp(x.info.id, o.info.id))
             std::snprintf(x.info.value, sizeof(x.info.value), "%s", value.c_str());

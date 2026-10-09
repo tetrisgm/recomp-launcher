@@ -186,7 +186,7 @@ void draw_skin_picker(App& app) {
 
 void App::draw_mods() {
     title_text("Mods", mode == Mode::Overlay
-                           ? "Options a mod can change on a running game apply now; the rest are saved for the next start."
+                           ? "Changes are saved now. Options a mod can change on a running game apply at once; the rest apply on the next start."
                            : "Features from the bundled and installed mod packages. Changes apply when you press Play.");
     if (!mods.available()) {
         ImGui::TextDisabled("This build has no mod support.");

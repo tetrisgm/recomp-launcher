@@ -55,8 +55,8 @@ public:
     bool remove(const RecompLauncherCModPackage& pkg, std::string* err);
     std::string archive_patterns() const;  // "psxmod;zip"
     bool dirty() const { return dirty_; }
-    // Overlay: forward edits to the running game. Returns 1 if live, 0 if the
-    // change waits for a restart (recorded in needs_restart).
+    // Overlay: the host records, saves (mods/state.toml) and applies every
+    // edit; returns 1 if live, 0 if it waits for a restart (needs_restart).
     std::function<int(const char* pkg, const char* feature, const char* option, const char* value)> live;
     std::set<std::string> needs_restart;  // "pkg/feature"
 
