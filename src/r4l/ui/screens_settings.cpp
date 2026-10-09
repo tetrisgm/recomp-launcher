@@ -552,9 +552,13 @@ void App::draw_mods() {
             for (const auto& r : f.resources) {
                 ImGui::PushID(r.id);
                 ImGui::TextUnformatted(r.label[0] ? r.label : r.id);
+                if (r.required && !r.verified) {
+                    ImGui::SameLine();
+                    chip(tr("Required"), theme().warn);
+                }
+                ImGui::PushTextWrapPos(0);
                 ImGui::TextDisabled("%s", r.path[0] ? r.path : tr("Not set"));
-                if (r.required && !r.verified) chip(tr("Required"), theme().warn);
-                ImGui::SameLine();
+                ImGui::PopTextWrapPos();
                 if (mode == Mode::Launcher && ImGui::SmallButton(tr("Choose..."))) {
                     struct Ctx { App* a; int feature; std::string res; };
                     auto* c = new Ctx{this, selected_feature, r.id};
