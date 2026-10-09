@@ -3,6 +3,7 @@
 // disc auto-scan, disc-sourced skin assets, Restore defaults, translations.
 #include "skin.h"
 #include "ui.h"
+#include "dialogs.h"
 
 #include "r4l/core/discscan.h"
 #include "r4l/core/json.h"
@@ -59,8 +60,8 @@ void pick_file(const char* desc, const char* patterns, std::function<void(const 
     p = patterns;
     f = SDL_DialogFileFilter{d.c_str(), p.c_str()};
     auto* fn = new std::function<void(const std::string&)>(std::move(done));
-    if (save) SDL_ShowSaveFileDialog(pick_cb, fn, SDL_GL_GetCurrentWindow(), &f, 1, nullptr);
-    else SDL_ShowOpenFileDialog(pick_cb, fn, SDL_GL_GetCurrentWindow(), &f, 1, nullptr, false);
+    if (save) show_save_file(pick_cb, fn, SDL_GL_GetCurrentWindow(), &f, 1, nullptr);
+    else show_open_file(pick_cb, fn, SDL_GL_GetCurrentWindow(), &f, 1, nullptr, false);
 }
 
 void SDLCALL job_cb(void* ctx, float pct, const char* msg) {

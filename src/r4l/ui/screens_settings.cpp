@@ -1,6 +1,7 @@
 // screens_settings.cpp — Graphics, Mods and Controls.
 #include "skin.h"
 #include "ui.h"
+#include "dialogs.h"
 
 #include "r4l/core/ini.h"
 
@@ -341,7 +342,7 @@ void App::draw_mods() {
             static std::string desc;
             desc = (s.game && s.game->mods && s.game->mods->archive_description) ? s.game->mods->archive_description : "Mod archive";
             filter = SDL_DialogFileFilter{desc.c_str(), patterns.c_str()};
-            SDL_ShowOpenFileDialog(
+            show_open_file(
                 [](void* user, const char* const* files, int) {
                     App* a = static_cast<App*>(user);
                     if (!files || !files[0]) return;
@@ -554,7 +555,7 @@ void App::draw_mods() {
                 if (mode == Mode::Launcher && ImGui::SmallButton(tr("Choose..."))) {
                     struct Ctx { App* a; int feature; std::string res; };
                     auto* c = new Ctx{this, selected_feature, r.id};
-                    SDL_ShowOpenFolderDialog(
+                    show_open_folder(
                         [](void* u, const char* const* files, int) {
                             Ctx* c = static_cast<Ctx*>(u);
                             if (files && files[0] && c->feature < static_cast<int>(c->a->mods.features.size())) {

@@ -52,6 +52,7 @@ set(R4L_SOURCES
     ${R4L_ROOT}/src/r4l/ui/screen_netplay.cpp
     ${R4L_ROOT}/src/r4l/ui/screen_netplay_more.cpp
     ${R4L_ROOT}/src/r4l/ui/screens_system.cpp
+    ${R4L_ROOT}/src/r4l/ui/script.cpp
     ${R4L_ROOT}/src/r4l/ui/screens_settings.cpp
     ${R4L_TITLE_SOURCE}
     ${R4L_IMGUI}/imgui.cpp

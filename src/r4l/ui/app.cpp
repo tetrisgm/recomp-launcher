@@ -1,6 +1,7 @@
 // app.cpp — frame layout, navigation, Home / Disc setup / About, widgets.
 #include "skin.h"
 #include "ui.h"
+#include "dialogs.h"
 
 #include <dirent.h>
 #include <fstream>
@@ -675,7 +676,7 @@ void App::draw_setup() {
             desc = (g && g->rom_filter_desc) ? g->rom_filter_desc : std::string("PlayStation ") + (g && g->rom_noun ? g->rom_noun : "disc");
             static SDL_DialogFileFilter filters[1];
             filters[0] = SDL_DialogFileFilter{desc.c_str(), pat.c_str()};
-            SDL_ShowOpenFileDialog(on_file_chosen, new DialogCtx{this, static_cast<int>(i)},
+            show_open_file(on_file_chosen, new DialogCtx{this, static_cast<int>(i)},
                                    SDL_GL_GetCurrentWindow(), filters, 1, nullptr, false);
         }
         if (!d.path.empty()) {
@@ -693,7 +694,7 @@ void App::draw_setup() {
                     ImGui::SameLine();
                     if (ImGui::Button("Import .sbi...")) {
                         static const SDL_DialogFileFilter f[] = {{"SBI file", "sbi"}};
-                        SDL_ShowOpenFileDialog(on_file_chosen, new DialogCtx{this, -2},
+                        show_open_file(on_file_chosen, new DialogCtx{this, -2},
                                                SDL_GL_GetCurrentWindow(), f, 1, nullptr, false);
                     }
                 }
@@ -721,7 +722,7 @@ void App::draw_setup() {
             bdesc = g->bios_filter_desc ? g->bios_filter_desc : (g->bios_name ? g->bios_name : "BIOS image");
             static SDL_DialogFileFilter f[1];
             f[0] = SDL_DialogFileFilter{bdesc.c_str(), bpat.c_str()};
-            SDL_ShowOpenFileDialog(on_file_chosen, new DialogCtx{this, -1}, SDL_GL_GetCurrentWindow(), f, 1,
+            show_open_file(on_file_chosen, new DialogCtx{this, -1}, SDL_GL_GetCurrentWindow(), f, 1,
                                    nullptr, false);
         }
         if (!s.bios_path.empty())
