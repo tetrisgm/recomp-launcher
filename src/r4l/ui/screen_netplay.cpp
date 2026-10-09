@@ -15,6 +15,25 @@ void netplay_draw_modals(App& a);
 void netplay_load_blocks(App& a);
 void netplay_player_menu(App& a, const char* name, const char* account);
 
+// Lobby server error codes, in words a player can act on.
+static std::string lobby_error_text(const char* code) {
+    static const struct { const char* code; const char* text; } kWhy[] = {
+        {"login_required", "This server needs you to sign in to host. You can still join rooms"},
+        {"need_account", "Sign in to use this"},
+        {"relay_unavailable", "The server could not start the match: it cannot relay a room with "
+                              "spectators seated, or a guest could not reach the host"},
+        {"need_players", "Waiting for another player"},
+        {"missing_endpoints", "The players could not reach each other"},
+        {"ice_not_connected", "The players could not reach each other"},
+        {"not_host", "Only the host can start"},
+        {"bad_password", "Wrong password"},
+        {"lobby_full", "That room is full"},
+    };
+    for (const auto& w : kWhy)
+        if (std::strcmp(code, w.code) == 0) return tr(w.text);
+    return code;
+}
+
 void App::draw_netplay() {
     screen_title("Netplay");
     const RecompLauncherCGameInfo* g = s.game;
@@ -43,7 +62,7 @@ void App::draw_netplay() {
     netplay_draw_modals(*this);
     auto call_err = [&](const char* what) {
         const char* e = np->last_error ? np->last_error(c) : nullptr;
-        np_status = std::string(what) + (e && *e ? ": " + std::string(e) : "");
+        np_status = std::string(what) + (e && *e ? ": " + lobby_error_text(e) : "");
         if (np->clear_last_error) np->clear_last_error(c);
     };
 
@@ -52,17 +71,7 @@ void App::draw_netplay() {
     if (np->last_error) {
         const char* e = np->last_error(c);
         if (e && *e) {
-            static const struct { const char* code; const char* text; } kWhy[] = {
-                {"relay_unavailable", "The server could not start the match: it cannot relay a room with "
-                                      "spectators seated, or a guest could not reach the host"},
-                {"need_players", "Waiting for another player"},
-                {"missing_endpoints", "The players could not reach each other"},
-                {"ice_not_connected", "The players could not reach each other"},
-                {"not_host", "Only the host can start"},
-            };
-            std::string msg = e;
-            for (const auto& w : kWhy)
-                if (std::strcmp(e, w.code) == 0) msg = tr(w.text);
+            std::string msg = lobby_error_text(e);
             np_status = msg;
             if (np->clear_last_error) np->clear_last_error(c);
         }
