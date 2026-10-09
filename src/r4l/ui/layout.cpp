@@ -384,7 +384,7 @@ void App::restart_chip(size_t off, size_t size) {
 void App::overlay_tick() {
     if (!s.io || !host) return;
     if (std::memcmp(s.io, &applied, sizeof(applied)) != 0) {
-        if (host->apply_settings) host->apply_settings(host->ctx, s.io);
+        if (host->apply_settings) applied_bits = host->apply_settings(host->ctx, s.io);
         applied = *s.io;
     }
     if (s.binds_dirty) {

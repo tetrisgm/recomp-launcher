@@ -58,6 +58,10 @@ void mod_option_row(ModCatalog& mods, ModFeature& f, ModOption& o) {
 // ---------------------------------------------------------------- Graphics
 
 void App::draw_graphics() {
+    // In a netplay match the host applies only presentation live; it says so
+    // with RECOMP_OVERLAY_RESTART_OTHER (bit 31), and the rest waits.
+    if (mode == Mode::Overlay && netplay_locked && (applied_bits & (1u << 31)))
+        chip(tr("Some changes apply after this match"), theme().warn);
     RecompLauncherCSettings* io = s.io;
     const RecompLauncherCGameInfo* g = s.game;
     title_text(tr("Graphics"), tr("Pick a preset, or change any row. Changing a row a preset sets makes it Custom."));

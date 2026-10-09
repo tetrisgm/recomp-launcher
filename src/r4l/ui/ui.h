@@ -74,6 +74,7 @@ struct App {
     const RecompOverlayHost* host = nullptr;   // overlay mode only
     RecompLauncherCSettings opened{};          // settings when the overlay opened
     RecompLauncherCSettings applied{};         // last state pushed to the host
+    unsigned applied_bits = 0;                 // host's answer: RECOMP_OVERLAY_RESTART_*
     bool overlay_open = false;
     bool netplay_locked = false;               // overlay during netplay: no pause, local-view only
     Screen last_focus_screen = Screen::Count;
