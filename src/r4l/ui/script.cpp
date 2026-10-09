@@ -148,10 +148,13 @@ void Script::step(App& app, Platform& plat) {
             return;
         } else if (op == "tap") {  // click the item with this label (last frame)
             auto it = g_prev.find(rest);
-            if (it == g_prev.end()) {
-                // Off screen? Scroll the content pane down and look again.
+            const float vh = ImGui::GetIO().DisplaySize.y;
+            const bool visible = it != g_prev.end() && it->second.Min.y >= 0 && it->second.Max.y <= vh - 50;
+            if (!visible) {
+                // Off screen? Scroll the content pane towards it and look again.
+                const bool up = it != g_prev.end() && it->second.Min.y < 0;
                 if (scrolls_++ < 10) {
-                    lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(content_x_) + " 420 -4",
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(content_x_) + " 420 " + (up ? "3" : "-3"),
                                                                             "wait 2", "tap " + rest});
                     continue;
                 }
