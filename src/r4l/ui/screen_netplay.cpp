@@ -242,6 +242,7 @@ void App::draw_netplay() {
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-110);
     ImGui::InputTextWithHint("##code", "Lobby code", np_join_code, sizeof(np_join_code));
+    script_mark("field:code");
     ImGui::SameLine();
     if (ImGui::Button("Join##code", ImVec2(-1, 0)) && np->join && np_join_code[0]) {
         char bind[96] = {0};
@@ -249,8 +250,11 @@ void App::draw_netplay() {
     }
     ImGui::SetNextItemWidth(-110);
     ImGui::InputTextWithHint("##addr", "Address (host:port)", np_address, sizeof(np_address));
+    script_mark("field:address");
     ImGui::SameLine();
-    if (ImGui::Button("Join##addr", ImVec2(-1, 0)) && np->join && np_address[0]) {
+    const bool join_addr = ImGui::Button("Join##addr", ImVec2(-1, 0));
+    script_mark("join:address");
+    if (join_addr && np->join && np_address[0]) {
         char bind[96] = {0};
         const std::string id = std::string("lan:") + np_address;
         const int rc = np->join(c, id.c_str(), np_password, bind);
