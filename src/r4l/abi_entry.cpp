@@ -58,12 +58,15 @@ extern "C" int recomp_launcher_run_window(const char* window_title, RecompLaunch
     apply_theme(*app.title, 1.0f);
     app.init_skin();
     const char* shot = std::getenv("R4L_SCREENSHOT");  // capture one frame and quit
+    // Test hook: press Play after a few frames (scripted first-run checks).
+    const bool autoplay = std::getenv("R4L_AUTOPLAY") && !shot;
     int frames = 0;
     while (app.s.outcome == Outcome::None) {
         if (!plat.pump(app)) app.request_quit();
         plat.begin_frame();
         app.frame();
         plat.end_frame(shot != nullptr);
+        if (autoplay && ++frames == 8) app.request_launch();
         if (shot && ++frames == 4) {
             plat.capture_png(shot);
             app.request_quit();
