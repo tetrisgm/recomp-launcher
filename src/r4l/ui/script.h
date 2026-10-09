@@ -9,12 +9,17 @@
 #include <string>
 #include <vector>
 
+bool r4l_script_items_has(const std::string& l);
+
 struct SDL_Window;
 
 namespace r4l {
 
 struct App;
 struct Platform;
+
+void script_mark(const char* label);   // row widgets register their row label
+void script_frame_begin();             // once per frame, before ImGui::NewFrame
 
 class Script {
 public:
@@ -29,6 +34,8 @@ private:
     size_t pc_ = 0;
     int wait_ = 0;
     int failures_ = 0;
+    int scrolls_ = 0;
+    int content_x_ = 800;  // a point inside the content pane
 };
 
 }  // namespace r4l

@@ -77,6 +77,7 @@ function(recomp_target_launcher_ui TGT)
     target_include_directories(${TGT} PRIVATE ${R4L_ROOT}/src ${R4L_ROOT} ${R4L_IMGUI} ${R4L_IMGUI}/backends ${R4L_ROOT}/third_party/stb)
     target_compile_definitions(${TGT} PRIVATE
         RECOMP_LAUNCHER
+        IMGUI_ENABLE_TEST_ENGINE  # item hooks for R4L_SCRIPT (script.cpp); inert unless scripting
         RECOMP_UI_ENABLE_MODS=$<BOOL:${RECOMP_UI_ENABLE_MODS}>
         SDL_MAIN_HANDLED
         R4L_VERSION="${R4L_VERSION}"

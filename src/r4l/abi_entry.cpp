@@ -7,6 +7,8 @@
 #include "r4l/core/session.h"
 #include "r4l/ui/platform.h"
 #include "r4l/ui/script.h"
+
+#include "imgui_internal.h"
 #include "r4l/ui/skin.h"
 #include "r4l/ui/ui.h"
 
@@ -65,7 +67,11 @@ extern "C" int recomp_launcher_run_window(const char* window_title, RecompLaunch
     Script script;
     const bool scripted = std::getenv("R4L_SCRIPT") && script.load(std::getenv("R4L_SCRIPT"));
     while (app.s.outcome == Outcome::None) {
-        if (scripted) script.step(app, plat);
+        if (scripted) {
+            script.step(app, plat);
+            script_frame_begin();
+            ImGui::GetCurrentContext()->TestEngineHookItems = true;
+        }
         if (!plat.pump(app)) app.request_quit();
         plat.begin_frame();
         app.frame();

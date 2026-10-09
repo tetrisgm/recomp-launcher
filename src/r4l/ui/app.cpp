@@ -1,6 +1,7 @@
 // app.cpp — frame layout, navigation, Home / Disc setup / About, widgets.
 #include "skin.h"
 #include "ui.h"
+#include "script.h"
 #include "dialogs.h"
 
 #include <dirent.h>
@@ -156,6 +157,7 @@ bool row_combo(const char* label, int* v, const char* const* items, int count, c
         ImGui::EndCombo();
     }
     if (ct) ImGui::PopStyleColor();
+    script_mark(label);
     ImGui::PopID();
     return changed;
 }
@@ -179,6 +181,7 @@ bool row_toggle(const char* label, int* v, const char* help) {
     const float r = h * 0.5f - 4;
     const float cx = *v ? p.x + w - h * 0.5f : p.x + h * 0.5f;
     dl->AddCircleFilled(ImVec2(cx, p.y + h * 0.5f), r, u32(g_theme.text), 24);
+    script_mark(label);
     ImGui::PopID();
     return clicked;
 }
@@ -187,6 +190,7 @@ bool row_slider(const char* label, int* v, int lo, int hi, const char* fmt, cons
     ImGui::PushID(label);
     row_begin(label, help);
     const bool c = ImGui::SliderInt("##s", v, lo, hi, fmt, ImGuiSliderFlags_AlwaysClamp);
+    script_mark(label);
     ImGui::PopID();
     return c;
 }

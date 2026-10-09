@@ -1,6 +1,7 @@
 // screens_settings.cpp — Graphics, Mods and Controls.
 #include "skin.h"
 #include "ui.h"
+#include "script.h"
 #include "dialogs.h"
 
 #include "r4l/core/ini.h"
@@ -766,6 +767,7 @@ void App::draw_controls() {
                 capture.input = a;
                 capture.started = time;
             }
+            script_mark((std::string("assist:") + g->assist_binding_labels[a]).c_str());
             ImGui::SameLine();
             if (ImGui::Button(tr("Clear"))) io->assist_pad_bind[a] = 0;
             if (g->assist_default_key_bind && g->assist_default_key_bind[a] > 0 && ImGui::IsItemHovered())

@@ -10,11 +10,52 @@
 
 #include <SDL3/SDL.h>
 
+#include "imgui_internal.h"
+
+#include <cstdarg>
+#include <map>
+
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 
+// ---- item registry (Dear ImGui test-engine hooks) ---------------------------
+// Every labelled item ImGui adds this frame is recorded by its visible label,
+// so scripts can say `tap Restore defaults` instead of guessing coordinates.
+namespace {
+std::map<ImGuiID, ImRect> g_bb;
+std::map<std::string, ImRect> g_items, g_prev;
+std::string visible(const char* label) {
+    std::string l = label ? label : "";
+    const size_t h = l.find("##");
+    if (h != std::string::npos) l.resize(h);
+    return l;
+}
+}  // namespace
+
+void ImGuiTestEngineHook_ItemAdd(ImGuiContext*, ImGuiID id, const ImRect& bb, const ImGuiLastItemData*) { g_bb[id] = bb; }
+void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label, ImGuiItemStatusFlags) {
+    const std::string l = visible(label);
+    auto it = g_bb.find(id);
+    if (!l.empty() && it != g_bb.end() && !r4l_script_items_has(l)) g_items[l] = it->second;
+}
+void ImGuiTestEngineHook_Log(ImGuiContext*, const char*, ...) {}
+const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return nullptr; }
+
+bool r4l_script_items_has(const std::string& l) { return g_items.count(l) != 0; }
+
 namespace r4l {
+
+void script_mark(const char* label) {  // row widgets: the row's own label
+    if (!ImGui::GetCurrentContext() || !ImGui::GetCurrentContext()->TestEngineHookItems) return;
+    const std::string l = visible(label);
+    if (!l.empty() && !g_items.count(l)) g_items[l] = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+}
+void script_frame_begin() {
+    g_prev.swap(g_items);
+    g_items.clear();
+    g_bb.clear();
+}
 
 bool Script::load(const std::string& path) {
     std::ifstream f(path);
@@ -105,6 +146,53 @@ void Script::step(App& app, Platform& plat) {
             SDL_PushEvent(&e);
             wait_ = 2;
             return;
+        } else if (op == "tap") {  // click the item with this label (last frame)
+            auto it = g_prev.find(rest);
+            if (it == g_prev.end()) {
+                // Off screen? Scroll the content pane down and look again.
+                if (scrolls_++ < 10) {
+                    lines_.insert(lines_.begin() + static_cast<long>(pc_), {"wheel " + std::to_string(content_x_) + " 420 -4",
+                                                                            "wait 2", "tap " + rest});
+                    continue;
+                }
+                scrolls_ = 0;
+                std::fprintf(stderr, "[r4l-script] FAIL no item \"%s\"\n", rest.c_str());
+                ++failures_;
+                continue;
+            }
+            scrolls_ = 0;
+            const ImVec2 c = it->second.GetCenter();
+            lines_.insert(lines_.begin() + static_cast<long>(pc_), "click " + std::to_string(c.x) + " " + std::to_string(c.y));
+        } else if (op == "pad") {  // gamepad button by SDL name (a, b, back, start, leftshoulder...)
+            const SDL_GamepadButton b = SDL_GetGamepadButtonFromString(rest.c_str());
+            for (int down = 1; down >= 0; --down) {
+                SDL_zero(e);
+                e.type = down ? SDL_EVENT_GAMEPAD_BUTTON_DOWN : SDL_EVENT_GAMEPAD_BUTTON_UP;
+                e.gbutton.button = static_cast<Uint8>(b);
+                e.gbutton.down = down != 0;
+                SDL_PushEvent(&e);
+            }
+            wait_ = 2;
+            return;
+        } else if (op == "file") {  // assert a file exists and contains text: file <path> <text>
+            std::istringstream a(rest);
+            std::string path, want;
+            a >> path;
+            std::getline(a, want);
+            want = trim(want);
+            std::ifstream f(path, std::ios::binary);
+            std::stringstream ss;
+            ss << f.rdbuf();
+            const bool ok = f && ss.str().find(want) != std::string::npos;
+            std::fprintf(stderr, "[r4l-script] %s file %s contains \"%s\"\n", ok ? "PASS" : "FAIL", path.c_str(), want.c_str());
+            if (!ok) ++failures_;
+        } else if (op == "top") {  // scroll the content pane back to the top
+            for (int i = 0; i < 3; ++i) lines_.insert(lines_.begin() + static_cast<long>(pc_), "wheel " + std::to_string(content_x_) + " 420 40");
+        } else if (op == "seen") {  // an item with this label was drawn last frame
+            const bool ok = g_prev.count(rest) != 0;
+            if (!ok && std::getenv("R4L_SCRIPT_DEBUG")) for (auto& kv : g_prev) std::fprintf(stderr, "  item: %s\n", kv.first.c_str());
+            std::fprintf(stderr, "[r4l-script] %s seen \"%s\"\n", ok ? "PASS" : "FAIL", rest.c_str());
+            if (!ok) ++failures_;
         } else if (op == "shot") {
             plat.capture_png(rest);
         } else if (op == "status") {

@@ -3,6 +3,7 @@
 // disc auto-scan, disc-sourced skin assets, Restore defaults, translations.
 #include "skin.h"
 #include "ui.h"
+#include "script.h"
 #include "dialogs.h"
 
 #include "r4l/core/discscan.h"
@@ -310,6 +311,7 @@ void App::draw_system() {
                 capture.input = static_cast<int>(i);
                 capture.started = time;
             }
+            script_mark(("key:" + s.hotkeys[i].first).c_str());
             ImGui::PopID();
         }
     }

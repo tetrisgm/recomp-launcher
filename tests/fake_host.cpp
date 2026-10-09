@@ -328,6 +328,11 @@ int main(int argc, char** argv) {
         }
         return fail;
     }
+    if (argc > 1 && !std::strcmp(argv[1], "--run")) {  // one launcher session (R4L_SCRIPT drives it)
+        const int rc = recomp_launcher_run_window("R4", &s, &gi, argc > 2 ? argv[2] : "assets", "", out, sizeof out);
+        std::printf("run_window rc=%d\n", rc);
+        return 0;
+    }
     std::fprintf(stderr, "usage: %s --abi-selftest | --shots <out-dir> [--assets d] [--skin name|path] [--size WxH] [--screens a,b]\n", argv[0]);
     return 2;
 }
