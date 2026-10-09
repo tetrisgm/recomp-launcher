@@ -227,7 +227,7 @@ void App::draw_netplay() {
         char endpoint[96] = {0};
         if (np->set_player_name) np->set_player_name(c, io->netplay_player_name);
         const int rc = np->create(c, np_lobby_name, endpoint, np_password, io, np_lan_only ? 1 : 0, np_seats);
-        if (rc <= 0) call_err(rc == -4 ? "Port is busy" : "Could not host");
+        if (rc < 0) call_err(rc == -4 ? "Port is busy" : "Could not host");
         else if (np->create_default_rollback && np->rollback_set)
             np->rollback_set(c, np->create_default_rollback(c, np_seats));
     }
@@ -246,7 +246,7 @@ void App::draw_netplay() {
     ImGui::SameLine();
     if (ImGui::Button("Join##code", ImVec2(-1, 0)) && np->join && np_join_code[0]) {
         char bind[96] = {0};
-        if (np->join(c, np_join_code, np_password, bind) <= 0) call_err("Join failed");
+        if (np->join(c, np_join_code, np_password, bind) < 0) call_err("Join failed");
     }
     ImGui::SetNextItemWidth(-110);
     ImGui::InputTextWithHint("##addr", "Address (host:port)", np_address, sizeof(np_address));
@@ -258,7 +258,7 @@ void App::draw_netplay() {
         char bind[96] = {0};
         const std::string id = std::string("lan:") + np_address;
         const int rc = np->join(c, id.c_str(), np_password, bind);
-        if (rc <= 0) call_err(rc == -3 ? "No host answered at that address" : "Join failed");
+        if (rc < 0) call_err(rc == -3 ? "No host answered at that address" : rc == -2 ? "Wrong password" : "Join failed");
     }
     if (np->local_address_get) {
         ImGui::TextDisabled("Your addresses:");
@@ -303,7 +303,7 @@ void App::draw_netplay() {
                     np_show_password = true;
                 } else {
                     char bind[96] = {0};
-                    if (np->join(c, l.lobby_id, np_password, bind) <= 0) call_err("Join failed");
+                    if (np->join(c, l.lobby_id, np_password, bind) < 0) call_err("Join failed");
                 }
             }
             ImGui::PopID();

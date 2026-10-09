@@ -337,7 +337,7 @@ void netplay_draw_modals(App& a) {
         ImGui::InputText("##pw2", a.np_password, sizeof a.np_password, ImGuiInputTextFlags_Password);
         if (ImGui::Button(tr("Join")) && np->join) {
             char bind[96] = {0};
-            if (np->join(c, a.np_join_lobby.c_str(), a.np_password, bind) <= 0) a.np_status = tr("Join failed");
+            if (np->join(c, a.np_join_lobby.c_str(), a.np_password, bind) < 0) a.np_status = tr("Join failed");
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
