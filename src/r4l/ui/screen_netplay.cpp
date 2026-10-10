@@ -295,6 +295,8 @@ void App::draw_netplay() {
     ImGui::BeginDisabled(!s.media_ready());
     if (big_button("Host", ImVec2(-1, 48), true) && np->create) {
         char endpoint[96] = {0};
+        // Test hook: host on an explicit port (several instances on one machine).
+        if (const char* hp = getenv("R4L_HOST_PORT")) std::snprintf(endpoint, sizeof endpoint, "0.0.0.0:%s", hp);
         if (np->set_player_name) np->set_player_name(c, io->netplay_player_name);
         const int rc = np->create(c, np_lobby_name, endpoint, np_password, io, np_lan_only ? 1 : 0, np_seats);
         if (rc < 0) call_err(rc == -4 ? "Port is busy" : "Could not host");
@@ -375,6 +377,7 @@ void App::draw_netplay() {
                     np_show_password = true;
                 } else {
                     char bind[96] = {0};
+                    std::fprintf(stderr, "r4l: joining lobby %s\n", l.lobby_id);
                     if (np->join(c, l.lobby_id, np_password, bind) < 0) call_err("Join failed");
                 }
             }
