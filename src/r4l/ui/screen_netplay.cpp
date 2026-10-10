@@ -320,6 +320,7 @@ void App::draw_netplay() {
     script_mark("join:code");
     if (join_code && np->join && np_join_code[0]) {
         char bind[96] = {0};
+        if (const char* hp = getenv("R4L_HOST_PORT")) std::snprintf(bind, sizeof bind, "0.0.0.0:%s", hp);
         if (np->join(c, np_join_code, np_password, bind) < 0) call_err("Join failed");
     }
     ImGui::SetNextItemWidth(-110);
@@ -330,6 +331,7 @@ void App::draw_netplay() {
     script_mark("join:address");
     if (join_addr && np->join && np_address[0]) {
         char bind[96] = {0};
+        if (const char* hp = getenv("R4L_HOST_PORT")) std::snprintf(bind, sizeof bind, "0.0.0.0:%s", hp);
         const std::string id = std::string("lan:") + np_address;
         const int rc = np->join(c, id.c_str(), np_password, bind);
         if (rc < 0) call_err(rc == -3 ? "No host answered at that address" : rc == -2 ? "Wrong password" : "Join failed");
@@ -377,6 +379,7 @@ void App::draw_netplay() {
                     np_show_password = true;
                 } else {
                     char bind[96] = {0};
+        if (const char* hp = getenv("R4L_HOST_PORT")) std::snprintf(bind, sizeof bind, "0.0.0.0:%s", hp);
                     std::fprintf(stderr, "r4l: joining lobby %s\n", l.lobby_id);
                     if (np->join(c, l.lobby_id, np_password, bind) < 0) call_err("Join failed");
                 }

@@ -368,6 +368,7 @@ void netplay_draw_modals(App& a) {
         if (join_pw && np->join) {
             std::fprintf(stderr, "r4l: joining lobby %s\n", a.np_join_lobby.c_str());
             char bind[96] = {0};
+            if (const char* hp = getenv("R4L_HOST_PORT")) std::snprintf(bind, sizeof bind, "0.0.0.0:%s", hp);
             if (np->join(c, a.np_join_lobby.c_str(), a.np_password, bind) < 0) a.np_status = tr("Join failed");
             ImGui::CloseCurrentPopup();
         }
